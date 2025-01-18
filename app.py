@@ -1621,47 +1621,160 @@ else:  # Excel file
 if st.session_state.preview_data is not None:
     st.markdown("""
         <style>
-        .preview-content {
+        /* Preview section styling */
+        .preview-section {
+            margin: 2em 0;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.08);
+            border: 1px solid #e0e0e0;
+            overflow: hidden;
+        }
+
+        .preview-header-container {
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            padding: 1em 1.5em;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            direction: rtl;
+        }
+
+        .preview-icon {
+            font-size: 1.5em;
+            margin-left: 0.8em;
+            background: linear-gradient(45deg, #2196F3, #64B5F6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .preview-title {
+            font-family: 'Cairo', sans-serif;
+            font-size: 1.4em;
+            font-weight: 600;
+            color: #1f1f1f;
+            margin: 0;
+            position: relative;
+        }
+
+        .preview-title::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            right: 0;
+            width: 40px;
+            height: 3px;
+            background: linear-gradient(90deg, #2196F3, #64B5F6);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .preview-header-container:hover .preview-title::after {
+            width: 100%;
+        }
+
+        /* Text preview specific styling */
+        .txt-preview {
             max-height: 300px;
             overflow-y: auto;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 10px;
-            margin: 10px 0;
-        }
-        
-        .compact-preview {
-            height: 100%;
-        }
-        
-        .compact-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        .compact-table th {
-            background: #f8f9fa;
-            position: sticky;
-            top: 0;
-            z-index: 1;
-            padding: 10px;
-            border-bottom: 2px solid #dee2e6;
-        }
-        
-        .compact-table td {
-            padding: 8px 10px;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .preview-text {
-            white-space: pre-wrap;
+            direction: rtl;
+            background: #ffffff;
             font-family: 'Cairo', sans-serif;
             line-height: 1.6;
+            padding: 0;
+            margin: 0;
+        }
+
+        .responses-container {
+            padding: 15px 45px 15px 15px;
+            counter-reset: response-counter;
+        }
+
+        .response-item {
+            position: relative;
+            padding: 8px 15px;
+            margin: 5px 0;
+            border-radius: 6px;
+            background: #f8f9fa;
+            transition: all 0.2s ease;
+            border-right: 3px solid #2196F3;
+            counter-increment: response-counter;
+        }
+
+        .response-item::before {
+            content: counter(response-counter);
+            position: absolute;
+            right: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+            font-size: 0.9em;
+            width: 20px;
+            text-align: left;
+        }
+
+        .response-item:hover {
+            background: #f1f8fe;
+            transform: translateX(-2px);
+            box-shadow: 0 2px 5px rgba(33, 150, 243, 0.1);
+        }
+
+        /* Scrollbar styling */
+        .txt-preview::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .txt-preview::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .txt-preview::-webkit-scrollbar-thumb {
+            background: #2196F3;
+            border-radius: 4px;
+        }
+
+        .txt-preview::-webkit-scrollbar-thumb:hover {
+            background: #1976D2;
+        }
+
+        /* Preview content wrapper */
+        .preview-content {
+            padding: 1.5em;
+            background: #ffffff;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        /* Dataframe specific styling */
+        .preview-content .dataframe {
+            width: 100%;
+            direction: rtl;
+            text-align: right;
+        }
+
+        @media (max-width: 768px) {
+            .preview-header-container {
+                padding: 1em;
+            }
+            
+            .preview-title {
+                font-size: 1.2em;
+            }
+            
+            .preview-icon {
+                font-size: 1.3em;
+            }
+
+            .txt-preview {
+                max-height: 250px;
+            }
         }
         </style>
     """, unsafe_allow_html=True)
     
-    # Wrap preview in collapsible section
     st.markdown("""
         <div class="preview-section">
             <div class="preview-header-container">
