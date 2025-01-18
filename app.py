@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import google.generativeai as genai
 import time
+import json
 from pathlib import Path
 import io
 from streamlit_extras.switch_page_button import switch_page
@@ -89,28 +90,28 @@ def initialize_gemini():
         }
 
         model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
+            model_name="gemini-2.0-flash-exp",
             generation_config=generation_config,
             system_instruction=(
-                "1. Classify the sentiment as exactly one of: {'إيجابي', 'سلبي', 'محايد'}"
-                "2. choose the best fit category and subcategory based on the provided catagories and subcategories"
-                "3. Provide a brief explanation (1-2 sentences)"
-                "Return a JSON array with one object per response:"
+                "You MUST return responses in the following JSON array format EXACTLY:\n"
                 "[\n"
                 "    {\n"
-                '        "response": "response text",\n'
+                '        "response": "the original response text",\n'
                 '        "classification": {\n'
-                '            "type": "sentiment type",\n'
+                '            "type": "one of: إيجابي, سلبي, محايد",\n'
                 '            "category": "main category",\n'
                 '            "subcategory": "subcategory",\n'
-                '            "explanation": "brief explanation"\n'
+                '            "explanation": "reasoning for the classification"\n'
                 "        }\n"
                 "    }\n"
-                "]\n"
-                "Rules:"
-                "1. Use 'خطأ' in all type, category, subcategory for any bad or not ralted response"
-                "2. All your responses MUST be in Arabic"
-                "3. the response must be a valid json array"
+                "]\n\n"
+                "Rules:\n"
+                "1. The response MUST be a valid JSON array, even for single items\n"
+                "2. All classification fields MUST be in Arabic\n"
+                "3. The type field MUST be exactly one of: إيجابي, سلبي, محايد\n"
+                "4. Use 'خطأ' for category and subcategory if the response is invalid or unrelated\n"
+                "5. Each response MUST include all required fields\n"
+                "6. The JSON structure MUST match exactly as shown above\n"
             )
         )
 
@@ -211,7 +212,7 @@ def classify_responses_batch(responses_batch):
         if not st.session_state.model:
             raise Exception("Gemini model is not initialized")
         
-        # Just send the responses with their IDs
+        # Format the responses for processing
         batch_text = "\n---\n".join([f"response_{i+1}: {str(r)}" for i, r in enumerate(responses_batch)])
         
         # Send request to model
@@ -222,11 +223,17 @@ def classify_responses_batch(responses_batch):
             response_text = chat_response.text.strip()
             
             # Basic validation of JSON structure
+            if not response_text:
+                raise ValueError("Empty response from model")
+                
             if not (response_text.startswith('[') and response_text.endswith(']')):
-                raise ValueError("Invalid JSON structure: Response must be an array")
+                # Try to wrap non-array response in array
+                if response_text.startswith('{') and response_text.endswith('}'):
+                    response_text = f"[{response_text}]"
+                else:
+                    raise ValueError("Invalid JSON structure: Response must be an array")
             
             # Parse and validate JSON response
-            import json
             classifications = json.loads(response_text)
             
             if not isinstance(classifications, list):
@@ -235,62 +242,51 @@ def classify_responses_batch(responses_batch):
                 else:
                     raise ValueError("Invalid response format: expected list or object")
             
-            # Process and validate classifications
+            # Validate each classification
             validated_results = []
             for classification in classifications:
-                try:
-                    # Skip invalid entries
-                    if not isinstance(classification, dict):
-                        continue
-                    
-                    # Validate required fields
-                    if 'response' not in classification or 'classification' not in classification:
-                        continue
-                    
-                    class_data = classification.get('classification', {})
-                    if not isinstance(class_data, dict):
-                        continue
-                    
-                    # Normalize type values
-                    type_value = class_data.get('type', '').strip()
-                    normalized_type = None
-                    
-                    if type_value in ['إيجابي', 'ايجابي', 'ايجابية', 'إيجابية']:
-                        normalized_type = 'إيجابي'
-                    elif type_value in ['سلبي', 'سلبية']:
-                        normalized_type = 'سلبي'
-                    elif type_value in ['محايد', 'محايدة']:
-                        normalized_type = 'محايد'
-                    else:
-                        normalized_type = 'محايد'  # Default to neutral for invalid types
-                    
-                    # Create validated result with required fields
-                    result = {
-                        'response': str(classification.get('response', '')).strip(),
-                        'classification': {
-                            'type': normalized_type,
-                            'category': str(class_data.get('category', 'محايد')).strip(),
-                            'subcategory': str(class_data.get('subcategory', 'محايد')).strip(),
-                            'explanation': str(class_data.get('explanation', '')).strip()
-                        }
-                    }
-                    
-                    # Only add if we have a valid response
-                    if result['response']:
-                        validated_results.append(result)
-                        
-                except Exception as e:
-                    st.warning(f"تم تخطي تصنيف غير صالح: {str(e)}")
+                if not isinstance(classification, dict):
                     continue
+                    
+                if 'response' not in classification or 'classification' not in classification:
+                    continue
+                    
+                class_data = classification.get('classification', {})
+                if not isinstance(class_data, dict):
+                    continue
+                    
+                # Validate and normalize type values
+                type_value = class_data.get('type', '').strip()
+                if type_value in ['إيجابي', 'ايجابي', 'ايجابية', 'إيجابية']:
+                    normalized_type = 'إيجابي'
+                elif type_value in ['سلبي', 'سلبية']:
+                    normalized_type = 'سلبي'
+                elif type_value in ['محايد', 'محايدة']:
+                    normalized_type = 'محايد'
+                else:
+                    normalized_type = 'محايد'
+                
+                # Create validated result
+                result = {
+                    'response': str(classification.get('response', '')).strip(),
+                    'classification': {
+                        'type': normalized_type,
+                        'category': str(class_data.get('category', 'خطأ')).strip(),
+                        'subcategory': str(class_data.get('subcategory', 'خطأ')).strip(),
+                        'explanation': str(class_data.get('explanation', '')).strip()
+                    }
+                }
+                
+                if result['response']:
+                    validated_results.append(result)
             
             return validated_results
             
         except json.JSONDecodeError as e:
             st.error(f"فشل في تحليل استجابة النموذج: {str(e)}")
             st.error(f"الاستجابة الأصلية: {response_text}")
-            # Try to recover partial results if possible
+            # Try to recover partial results
             try:
-                # Find the last complete object
                 import re
                 pattern = r'\{[^{}]*\}'
                 matches = re.finditer(pattern, response_text)
@@ -835,13 +831,20 @@ if st.session_state.get('results'):
                     # Write sheets
                     summary_df.to_excel(writer, sheet_name='ملخص التحليل', index=False, startrow=1)
                     category_dist.to_excel(writer, sheet_name='ملخص التحليل', index=False, startrow=9)
+                    
+                    # Sort all results by type and write to sheet
+                    type_order = ['إيجابي', 'سلبي', 'محايد', 'خطأ']
+                    all_results_df['type_order'] = pd.Categorical(all_results_df['النوع'], categories=type_order, ordered=True)
+                    all_results_df = all_results_df.sort_values('type_order')
+                    all_results_df = all_results_df.drop('type_order', axis=1)
                     all_results_df.to_excel(writer, sheet_name='جميع النتائج', index=False)
                     
                     # Write type-specific sheets
                     for df, sheet_name in [
                         (all_results_df[all_results_df['النوع'] == 'إيجابي'], 'التجارب الإيجابية'),
                         (all_results_df[all_results_df['النوع'] == 'سلبي'], 'التجارب السلبية'),
-                        (all_results_df[all_results_df['النوع'] == 'محايد'], 'التجارب المحايدة')
+                        (all_results_df[all_results_df['النوع'] == 'محايد'], 'التجارب المحايدة'),
+                        (all_results_df[all_results_df['النوع'] == 'خطأ'], 'الاستجابات غير المرتبطة')
                     ]:
                         if not df.empty:
                             df.to_excel(writer, sheet_name=sheet_name, index=False)
@@ -932,6 +935,8 @@ if st.session_state.get('results'):
                                         fill = negative_fill
                                     elif sentiment == 'محايد':
                                         fill = neutral_fill
+                                    elif sentiment == 'خطأ':
+                                        fill = PatternFill(start_color='808080', end_color='808080', fill_type='solid')  # Gray for errors
                                     
                                     if fill:
                                         for cell in row:

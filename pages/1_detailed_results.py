@@ -19,13 +19,10 @@ def load_types():
         with open(file_path, 'r', encoding='utf-8') as file:
             data = yaml.safe_load(file)
             types = data.get('types', [])
-            # Ensure "خطأ" is included in types
-            if "خطأ" not in types:
-                types.append("خطأ")
             return types
     except FileNotFoundError:
-        # Default types including "خطأ"
-        return ['إيجابي', 'سلبي', 'محايد', 'خطأ']
+        # Default types without "خطأ"
+        return ['إيجابي', 'سلبي', 'محايد']
 
 # Load types configuration
 TYPES = load_types()
