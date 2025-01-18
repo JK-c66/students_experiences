@@ -22,6 +22,65 @@ st.markdown("""
         padding: 1em !important;
     }
     
+    /* Enhanced number badge styling */
+    .number-badge {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-width: 2.5em !important;
+        height: 1.8em !important;
+        padding: 0.2em 1em !important;
+        border-radius: 25px !important;
+        margin-right: 0.8em !important;
+        font-size: 1.1em !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.5px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+
+    .number-badge::before {
+        content: '' !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        background: linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0)) !important;
+        opacity: 0 !important;
+        transition: opacity 0.3s ease !important;
+    }
+
+    .number-badge:hover {
+        transform: translateY(-2px) scale(1.05) !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+    }
+
+    .number-badge:hover::before {
+        opacity: 1 !important;
+    }
+
+    /* Default badge (total) */
+    .number-badge.total {
+        background: linear-gradient(135deg, #2196F3, #1976D2) !important;
+        color: white !important;
+    }
+
+    /* Positive experiences badge */
+    .number-badge.positive {
+        background: linear-gradient(135deg, #4CAF50, #388E3C) !important;
+        color: white !important;
+    }
+
+    /* Negative experiences badge */
+    .number-badge.negative {
+        background: linear-gradient(135deg, #f44336, #d32f2f) !important;
+        color: white !important;
+    }
+    
     /* Text alignment for all elements */
     .stMarkdown, .stText, .stTitle, div[data-testid="stText"] {
         text-align: right !important;
@@ -32,27 +91,52 @@ st.markdown("""
     /* RTL support for tabs */
     .stTabs [data-baseweb="tab-list"] {
         direction: rtl !important;
-        gap: 1em !important;
+        gap: 0.5em !important;
+        background: #f8f9fa !important;
+        padding: 0.5em !important;
+        border-radius: 12px !important;
+        border: 1px solid #e0e0e0 !important;
+        margin-bottom: 1em !important;
     }
 
     .stTabs [data-baseweb="tab"] {
         font-family: 'Cairo', sans-serif !important;
-        font-size: 1.1em !important;
-        padding: 1em 2em !important;
-        background: #f8f9fa !important;
+        font-size: 1em !important;
+        padding: 0.8em 1.5em !important;
+        background: white !important;
         border-radius: 8px !important;
-        margin-left: 0.5em !important;
+        margin: 0 !important;
+        border: 1px solid #e0e0e0 !important;
+        color: #666 !important;
+        transition: all 0.3s ease !important;
+        font-weight: 500 !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+    }
+
+    .stTabs [data-baseweb="tab"]:hover {
+        background: #f1f3f4 !important;
+        border-color: #d0d7dc !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
     }
 
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background: #2196F3 !important;
+        background: linear-gradient(135deg, #2196F3, #1976D2) !important;
         color: white !important;
         font-weight: 600 !important;
+        border: none !important;
+        box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3) !important;
+    }
+
+    .stTabs [data-baseweb="tab"][aria-selected="true"]:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 3px 6px rgba(33, 150, 243, 0.4) !important;
     }
 
     .stTabs [data-baseweb="tab-panel"] {
         direction: rtl !important;
         font-family: 'Cairo', sans-serif !important;
+        padding: 1em 0.5em !important;
     }
 
     /* Chart container styling */
@@ -96,46 +180,113 @@ st.markdown("""
         position: absolute !important;
         left: 15px !important;
         top: 15px !important;
+        z-index: 10 !important;
     }
 
     .info-link {
-        display: inline-block !important;
-        width: 24px !important;
-        height: 24px !important;
-        background: #2196F3 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 28px !important;
+        height: 28px !important;
+        background: linear-gradient(135deg, #2196F3, #1976D2) !important;
         color: white !important;
         border-radius: 50% !important;
         text-align: center !important;
-        line-height: 24px !important;
         text-decoration: none !important;
         font-weight: bold !important;
+        font-size: 14px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        transition: all 0.3s ease !important;
+        border: 2px solid rgba(255,255,255,0.2) !important;
+    }
+
+    .info-link:hover {
+        transform: scale(1.1) !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
     }
 
     .info-bubble {
         display: none !important;
         position: absolute !important;
-        left: 30px !important;
-        top: 0 !important;
-        background: white !important;
-        border: 1px solid #e0e0e0 !important;
-        border-radius: 8px !important;
-        padding: 10px !important;
-        width: 250px !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+        top: 38px !important;
+        left: -150px !important;  /* Center the bubble relative to icon */
+        background: linear-gradient(to bottom right, #ffffff, #f8f9fa) !important;
+        border: 1px solid rgba(33, 150, 243, 0.1) !important;
+        border-radius: 12px !important;
+        padding: 15px !important;
+        width: 300px !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
         z-index: 1000 !important;
+        font-size: 14px !important;
+        line-height: 1.6 !important;
+        color: #333 !important;
+        transition: opacity 0.3s ease, transform 0.3s ease !important;
+        opacity: 0 !important;
+        transform: translateY(-10px) !important;
+    }
+
+    .info-bubble::before {
+        content: '' !important;
+        position: absolute !important;
+        top: -8px !important;
+        left: 150px !important;  /* Center the arrow relative to bubble */
+        width: 0 !important;
+        height: 0 !important;
+        border-left: 8px solid transparent !important;
+        border-right: 8px solid transparent !important;
+        border-bottom: 8px solid white !important;
+        filter: drop-shadow(0 -2px 2px rgba(0,0,0,0.1)) !important;
     }
 
     .info-link:hover + .info-bubble {
         display: block !important;
+        opacity: 1 !important;
+        transform: translateY(0) !important;
+    }
+
+    /* Keep the bubble visible when hovering over it */
+    .info-bubble:hover {
+        display: block !important;
+        opacity: 1 !important;
+        transform: translateY(0) !important;
+    }
+
+    /* Filter section styling - RTL only */
+    .filter-section {
+        direction: rtl !important;
+        font-family: 'Cairo', sans-serif !important;
+    }
+
+    /* Filter headers styling */
+    .filter-header {
+        margin-bottom: 0.2em !important;
+        font-size: 0.9em !important;
+        color: #666 !important;
+        font-weight: 600 !important;
+    }
+
+    /* RTL support for inputs */
+    .stTextInput input {
+        direction: rtl !important;
+        text-align: right !important;
+        font-family: 'Cairo', sans-serif !important;
+    }
+
+    /* RTL support for text */
+    .stMarkdown, .stText {
+        text-align: right !important;
+        direction: rtl !important;
+        font-family: 'Cairo', sans-serif !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 def create_charts():
     """Create visualization charts for the data"""
-    if 'results' in st.session_state and st.session_state.results:
+    if 'filtered_results' in st.session_state and st.session_state.filtered_results:
         # Prepare data
-        results = st.session_state.results
+        results = st.session_state.filtered_results
         positive_count = len([r for r in results if r.get('classification', {}).get('type') == 'إيجابي'])
         negative_count = len([r for r in results if r.get('classification', {}).get('type') == 'سلبي'])
         
@@ -425,6 +576,7 @@ def display_experience(result, experience_type):
                         <span class="info-icon">i</span>
                     </a>
                     <div class="info-bubble">
+                        <strong>التفسير:</strong><br>
                         {result.get('classification', {}).get('explanation', 'لا يوجد تفسير')}
                     </div>
                 </div>
@@ -433,27 +585,114 @@ def display_experience(result, experience_type):
     except Exception as e:
         st.error(f"خطأ في عرض التجربة: {str(e)}")
 
-# Page title
-st.markdown('<h1 style="text-align: right;">تفاصيل تجارب الطلاب</h1>', unsafe_allow_html=True)
+def get_unique_categories(results):
+    """Get unique categories and subcategories from results"""
+    categories = set()
+    subcategories = set()
+    for r in results:
+        cat = r.get('classification', {}).get('category', '')
+        subcat = r.get('classification', {}).get('subcategory', '')
+        if cat:
+            categories.add(cat)
+        if subcat:
+            subcategories.add(subcat)
+    return sorted(list(categories)), sorted(list(subcategories))
 
-# Check if we have results in session state
+def filter_results(results, category=None, subcategory=None, search_text=None):
+    """Filter results based on selected criteria"""
+    filtered = results.copy()
+    
+    if category:
+        filtered = [r for r in filtered if r.get('classification', {}).get('category') == category]
+    
+    if subcategory:
+        filtered = [r for r in filtered if r.get('classification', {}).get('subcategory') == subcategory]
+    
+    if search_text:
+        search_text = search_text.lower()
+        filtered = [r for r in filtered if (
+            search_text in r.get('response', '').lower() or
+            search_text in r.get('classification', {}).get('category', '').lower() or
+            search_text in r.get('classification', {}).get('subcategory', '').lower() or
+            search_text in r.get('classification', {}).get('explanation', '').lower()
+        )]
+    
+    return filtered
+
+# Main content
+st.markdown('<h1 style="text-align: right;">تفاصيل التجارب</h1>', unsafe_allow_html=True)
+
 if 'results' in st.session_state and st.session_state.results:
-    # Create charts first
+    results = st.session_state.results
+    
+    # Get unique categories and subcategories
+    categories, subcategories = get_unique_categories(results)
+    
+    # Filter section
+    st.markdown('### تصفية النتائج', unsafe_allow_html=True)
+    
+    # Create three columns for filters
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown('<p class="filter-header">التصنيف الرئيسي</p>', unsafe_allow_html=True)
+        selected_category = st.selectbox(
+            "التصنيف الرئيسي",  # Proper label for accessibility
+            ["الكل"] + categories,
+            key="category_filter",
+            label_visibility="collapsed"
+        )
+    
+    with col2:
+        st.markdown('<p class="filter-header">التصنيف الفرعي</p>', unsafe_allow_html=True)
+        selected_subcategory = st.selectbox(
+            "التصنيف الفرعي",  # Proper label for accessibility
+            ["الكل"] + subcategories,
+            key="subcategory_filter",
+            label_visibility="collapsed"
+        )
+    
+    with col3:
+        st.markdown('<p class="filter-header">بحث في النتائج</p>', unsafe_allow_html=True)
+        search_text = st.text_input(
+            "بحث في النتائج",  # Proper label for accessibility
+            key="search_filter",
+            placeholder="اكتب للبحث...",
+            label_visibility="collapsed"
+        )
+    
+    # Apply filters
+    filtered_results = filter_results(
+        results,
+        category=selected_category if selected_category != "الكل" else None,
+        subcategory=selected_subcategory if selected_subcategory != "الكل" else None,
+        search_text=search_text if search_text else None
+    )
+    
+    # Update session state with filtered results for charts
+    st.session_state.filtered_results = filtered_results
+    
+    # Display charts with filtered data
     create_charts()
     
-    # Filter experiences
-    positive_experiences = [r for r in st.session_state.results if r.get('classification', {}).get('type') == 'إيجابي']
-    negative_experiences = [r for r in st.session_state.results if r.get('classification', {}).get('type') == 'سلبي']
+    # Display filtered experiences
+    st.markdown(f'<h2 style="text-align: right;">التجارب <span class="number-badge total">{len(filtered_results)}</span></h2>', unsafe_allow_html=True)
+    
+    # Separate positive and negative experiences
+    positive_experiences = [r for r in filtered_results if r.get('classification', {}).get('type') == 'إيجابي']
+    negative_experiences = [r for r in filtered_results if r.get('classification', {}).get('type') == 'سلبي']
     
     # Create tabs for positive and negative experiences
-    pos_tab, neg_tab = st.tabs(["التجارب الإيجابية", "التجارب السلبية"])
+    exp_tabs = st.tabs(["التجارب الإيجابية", "التجارب السلبية"])
     
-    with pos_tab:
-        for result in positive_experiences:
-            display_experience(result, "positive")
+    with exp_tabs[0]:
+        st.markdown(f'<h3 style="text-align: right;">التجارب الإيجابية <span class="number-badge positive">{len(positive_experiences)}</span></h3>', unsafe_allow_html=True)
+        for exp in positive_experiences:
+            display_experience(exp, "positive")
     
-    with neg_tab:
-        for result in negative_experiences:
-            display_experience(result, "negative")
+    with exp_tabs[1]:
+        st.markdown(f'<h3 style="text-align: right;">التجارب السلبية <span class="number-badge negative">{len(negative_experiences)}</span></h3>', unsafe_allow_html=True)
+        for exp in negative_experiences:
+            display_experience(exp, "negative")
 else:
-    st.warning("لم يتم العثور على نتائج التصنيف. الرجاء الرجوع إلى الصفحة الرئيسية وتحميل الملف أولاً.") 
+    st.warning("لا توجد نتائج للعرض. يرجى العودة إلى الصفحة الرئيسية وتحميل البيانات أولاً.") 

@@ -88,92 +88,84 @@ st.markdown("""
             box-shadow: 0 2px 8px rgba(31, 119, 180, 0.3);
         }
 
-        /* Enhanced Category Structure Design */
-        .category-card {
-            background: linear-gradient(145deg, #ffffff, #f8f9fa);
-            border-radius: 15px;
-            padding: 20px;
-            margin: 15px 0;
-            border: 1px solid rgba(31, 119, 180, 0.1);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
+        /* Category-specific styles */
+        .category-card[data-category="خدمات رقمية"] {
+            border-right: 4px solid #1f77b4;
+        }
+        .category-card[data-category="البنية التقنية"] {
+            border-right: 4px solid #7b2cbf;
+        }
+        .category-card[data-category="السكن"] {
+            border-right: 4px solid #2d936c;
+        }
+        .category-card[data-category="الطعام"] {
+            border-right: 4px solid #e85d04;
+        }
+        .category-card[data-category="النقل"] {
+            border-right: 4px solid #d00000;
         }
 
-        .category-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 4px;
-            height: 100%;
-            background: linear-gradient(to bottom, #1f77b4, #4a90e2);
-            opacity: 0.7;
+        /* Enhanced category card */
+        .category-card {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .category-card:hover {
-            transform: translateY(-5px) scale(1.02);
-            box-shadow: 0 12px 30px rgba(31, 119, 180, 0.15);
+            transform: translateX(-5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
-        
+
         .category-title {
-            color: #1f77b4;
-            font-size: 1.3em;
-            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 1.1em;
+            margin-bottom: 8px;
             font-weight: bold;
-            border-bottom: 2px solid #e9ecef;
-            padding-bottom: 10px;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 5px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 10px;
         }
 
         .category-title .count-badge {
-            background: rgba(31, 119, 180, 0.1);
-            color: #1f77b4;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8em;
-            font-weight: 500;
+            background: #f8f9fa;
+            color: #2c3e50;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.9em;
+            min-width: 24px;
+            text-align: center;
+            border: 1px solid rgba(0, 0, 0, 0.1);
         }
         
-        .subcategory-item {
-            background: #ffffff;
-            padding: 12px 20px;
-            margin: 8px 0;
-            border-radius: 10px;
-            border: 1px solid #f1f3f5;
-            transition: all 0.3s ease;
+        /* Compact subcategory display */
+        .subcategories-container {
             display: flex;
-            align-items: center;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 5px 0;
+        }
+
+        .subcategory-item {
+            background: #f8f9fa;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            display: inline-block;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        /* Categories container */
+        .categories-container {
+            display: grid;
             gap: 10px;
-            font-size: 1em;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .subcategory-item::before {
-            content: '';
-            position: absolute;
-            right: 0;
-            top: 0;
-            height: 100%;
-            width: 4px;
-            background: #4a90e2;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .subcategory-item:hover {
-            background: linear-gradient(to left, rgba(31, 119, 180, 0.05), transparent);
-            transform: translateX(-10px);
-            border-color: rgba(31, 119, 180, 0.3);
-        }
-
-        .subcategory-item:hover::before {
-            opacity: 1;
+            padding: 5px;
         }
 
         /* Vertical separator enhancement */
@@ -224,19 +216,6 @@ st.markdown("""
         
         .stButton > button {
             float: right;
-        }
-
-        /* Category container */
-        .categories-container {
-            display: grid;
-            gap: 20px;
-            padding: 15px;
-            animation: fadeIn 0.5s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
         }
 
         /* Enhanced Data Editor Styling */
@@ -401,6 +380,77 @@ st.markdown("""
             text-align: center !important;
             font-size: 1em !important;
         }
+
+        /* Category Pills/Boxes Styling */
+        .stTabs [data-baseweb="tab"] {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 15px !important;
+            padding: 10px 24px !important;
+            font-weight: 500 !important;
+            border: 1px solid rgba(0, 0, 0, 0.05) !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+            transition: all 0.3s ease !important;
+            margin: 0 5px !important;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Category-specific colors */
+        .stTabs [data-baseweb="tab"][aria-selected="true"][aria-label*="خدمات رقمية"] {
+            background: linear-gradient(135deg, #1a73e8 0%, #1557b0 100%) !important;
+        }
+        .stTabs [data-baseweb="tab"][aria-selected="true"][aria-label*="البنية التقنية"] {
+            background: linear-gradient(135deg, #7b2cbf 0%, #5a1d8a 100%) !important;
+        }
+        .stTabs [data-baseweb="tab"][aria-selected="true"][aria-label*="السكن"] {
+            background: linear-gradient(135deg, #2d936c 0%, #1e6e4f 100%) !important;
+        }
+        .stTabs [data-baseweb="tab"][aria-selected="true"][aria-label*="الطعام"] {
+            background: linear-gradient(135deg, #e85d04 0%, #bc4b02 100%) !important;
+        }
+        .stTabs [data-baseweb="tab"][aria-selected="true"][aria-label*="النقل"] {
+            background: linear-gradient(135deg, #d00000 0%, #9d0208 100%) !important;
+        }
+
+        .stTabs [data-baseweb="tab"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-color: rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .stTabs [data-baseweb="tab"][aria-selected="true"] {
+            color: white !important;
+            font-weight: 600 !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .stTabs [data-baseweb="tab"]::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .stTabs [data-baseweb="tab"]:hover::before {
+            opacity: 1;
+        }
+
+        .stTabs [data-baseweb="tab-list"] {
+            background: transparent !important;
+            padding: 15px 10px !important;
+            gap: 12px !important;
+        }
+
+        /* Container styling */
+        .stTabs {
+            background: transparent !important;
+            box-shadow: none !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -469,12 +519,14 @@ with tab1:
             for category, details in col_categories:
                 subcats_count = len(details.get('subcategories', []))
                 st.markdown(f"""
-                    <div class="category-card">
+                    <div class="category-card" data-category="{category}">
                         <div class="category-title">
                             <span>📑 {category}</span>
-                            <span class="count-badge">{subcats_count} تصنيف فرعي</span>
+                            <span class="count-badge">{subcats_count}</span>
                         </div>
-                        {''.join([f'<div class="subcategory-item">∙ {subcat}</div>' for subcat in details.get('subcategories', [])])}
+                        <div class="subcategories-container">
+                            {''.join([f'<div class="subcategory-item">{subcat}</div>' for subcat in details.get('subcategories', [])])}
+                        </div>
                     </div>
                 """, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
