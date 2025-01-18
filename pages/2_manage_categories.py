@@ -520,7 +520,7 @@ categories, types = load_categories()
 st.title("إدارة التصنيفات")
 
 # Create tabs
-tab1, tab2, tab3 = st.tabs(["عرض التصنيفات", "تعديل التصنيفات", "إدارة الأنواع"])
+tab1, tab2 = st.tabs(["عرض التصنيفات", "تعديل التصنيفات"])
 
 # View Categories Tab
 with tab1:
@@ -640,30 +640,4 @@ with tab2:
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Types Management Tab
-with tab3:
-    st.markdown('<div class="edit-section-header">إدارة أنواع التجارب</div>', unsafe_allow_html=True)
-    
-    types_df = types_to_df(types)
-    edited_types_df = st.data_editor(
-        types_df,
-        num_rows="dynamic",
-        key="types_editor",
-        use_container_width=True
-    )
-    
-    st.markdown('<div class="button-container">', unsafe_allow_html=True)
-    if st.button("حفظ التغييرات في الأنواع"):
-        new_types = []
-        for _, row in edited_types_df.iterrows():
-            type_name = row["النوع"]
-            if type_name and not pd.isna(type_name):
-                new_types.append(type_name)
-        
-        types = new_types
-        save_categories(categories, types)
-        st.success("✅ تم حفظ التغييرات بنجاح")
-        st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)

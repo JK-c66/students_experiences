@@ -1,2 +1,3 @@
 .streamlit/secrets.toml
 __pycache__/*
+pages/__pycache__/2_manage_categories.cpython-311.pyc

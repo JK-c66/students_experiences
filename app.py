@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
 import google.generativeai as genai
-import os
 import time
 from pathlib import Path
 import io
 from streamlit_extras.switch_page_button import switch_page
 import openpyxl
-import yaml
+from openpyxl.chart import PieChart, BarChart, Reference
 
 # Constants
 MIN_BATCH_SIZE = 50  # Minimum batch size for processing
@@ -92,28 +91,25 @@ def initialize_gemini():
             model_name="gemini-1.5-flash",
             generation_config=generation_config,
             system_instruction=(
-                "You are an expert system for classifying student experiences in universities. Follow these steps:\n\n"
-                "1. Content Validation:\n"
-                "   - Check if the text is comprehensible and meaningful\n"
-                "   - Verify if it's related to university/college experiences\n"
-                "   If content is gibberish or completely unrelated, create a new category called 'محتوى غير متعلق' with appropriate subcategory\n\n"
-                "2. Classification Process:\n"
-                "   a) First, try to match with existing categories if there's a good fit (80%+ confidence)\n"
-                "   b) If no good match exists:\n"
-                "      - Create a new appropriate category and subcategory\n"
-                "      - New categories should follow the existing naming style\n"
-                "      - New categories should be logical and reusable\n"
-                "      - Provide detailed explanation for why a new category was created\n\n"
-                "3. Category Creation Rules:\n"
-                "   - New categories must be in Arabic\n"
-                "   - Names should be concise but descriptive\n"
-                "   - Categories should be general enough to be reused\n"
-                "   - Subcategories should   be specific but not unique to one case\n\n"
-                "4. Sentiment Classification:\n"
-                "   - Use existing sentiment types only\n"
-                "   - For unclear or mixed sentiments, use 'محايد'\n"
-                "   - For irrelevant content, default to 'محايد'\n\n"
-                "Always provide detailed explanation for your classification decisions, especially for new categories."
+                "1. Classify the sentiment as exactly one of: {'إيجابي', 'سلبي', 'محايد'}\n"
+                "2. Assign a main category and subcategory based on the Classes.txt file\n"
+                "3. Provide a brief explanation (1-2 sentences)\n\n"
+                "Return a JSON array with one object per response:\n"
+                "[\n"
+                "    {\n"
+                '        "response": "response text",\n'
+                '        "classification": {\n'
+                '            "type": "sentiment type",\n'
+                '            "category": "main category",\n'
+                '            "subcategory": "subcategory",\n'
+                '            "explanation": "brief explanation"\n'
+                "        }\n"
+                "    }\n"
+                "]\n\n"
+                "Rules:\n"
+                "1. Use 'محايد' for unclear, mixed, or neutral content\n"
+                "2. All your responses MUST be in Arabic\n"
+                "3. follow the format exactly\n"
             )
         )
 
@@ -131,32 +127,14 @@ def initialize_gemini():
             if not wait_for_files_active(files):
                 raise Exception("File processing failed")
             
-            st.session_state.uploaded_files = files
-
-        # Load types from configuration
-        with open("data/Classes.txt", 'r', encoding='utf-8') as file:
-            data = yaml.safe_load(file)
-            types = data.get('types', [])
-            types_str = ', '.join(types)
 
         chat_session = model.start_chat(
             history=[
                 {
                     "role": "user",
                     "parts": [
-                        "Please analyze the following responses and classify them based on the categories in the file. "
-                        f"For each response, determine if it is one of these types: {types_str}. "
-                        "Provide the classification in the following format:\n"
-                        "{\n"
-                        "  'response': 'the original response',\n"
-                        "  'classification': {\n"
-                        "    'type': 'the experience type',\n"
-                        "    'category': 'main category',\n"
-                        "    'subcategory': 'subcategory',\n"
-                        "    'explanation': 'brief explanation of the classification'\n"
-                        "  }\n"
-                        "}",
-                        st.session_state.uploaded_files[0],
+                        "Please analyze and classify the following responses:",
+                        files[0],
                     ],
                 },
             ]
@@ -232,97 +210,110 @@ def classify_responses_batch(responses_batch):
         if not st.session_state.model:
             raise Exception("نموذج Gemini غير مهيأ")
         
-        # Combine responses into a single request with clear separation
-        batch_text = "\n=====\n".join([f"Response {i+1}: {str(r)}" for i, r in enumerate(responses_batch)])
+        # Create a mapping of response IDs to responses
+        response_mapping = {str(i+1): response for i, response in enumerate(responses_batch)}
         
-        # Create prompt with escaped curly braces for the example
-        prompt = (
-            f"Please classify these {len(responses_batch)} responses. For each response, determine:\n"
-            "1. Category (التصنيف)\n"
-            "2. Subcategory (التصنيف_فرعي)\n"
-            "3. Type (نوع) - must be either 'إيجابي' or 'سلبي'\n"
-            "4. Explanation (تفسير)\n\n"
-            "Return a JSON array with one object per response. Example format:\n"
-            "[\n"
-            "    {{\n"
-            '        "category": "example_category",\n'
-            '        "subcategory": "example_subcategory",\n'
-            '        "type": "إيجابي",\n'
-            '        "explanation": "example_explanation"\n'
-            "    }}\n"
-            "]\n\n"
-            "Here are the responses to classify:\n\n"
-            f"{batch_text}"
-        )
-
+        # Just send the responses with their IDs
+        batch_text = "\n---\n".join([f"response_{i+1}: {str(r)}" for i, r in enumerate(responses_batch)])
+        
         # Send request to model
-        chat_response = st.session_state.model.send_message(prompt)
+        chat_response = st.session_state.model.send_message(batch_text)
         
         try:
-            # Try to parse as JSON first
+            # Sanitize the response text
+            response_text = chat_response.text.strip()
+            
+            # Basic validation of JSON structure
+            if not (response_text.startswith('[') and response_text.endswith(']')):
+                raise ValueError("Invalid JSON structure: Response must be an array")
+            
+            # Parse and validate JSON response
             import json
-            classifications = json.loads(chat_response.text)
+            classifications = json.loads(response_text)
+            
+            if not isinstance(classifications, list):
+                if isinstance(classifications, dict):
+                    classifications = [classifications]
+                else:
+                    raise ValueError("Invalid response format: expected list or object")
+            
+            # Process and validate classifications
+            validated_results = []
+            for classification in classifications:
+                try:
+                    # Skip invalid entries
+                    if not isinstance(classification, dict):
+                        continue
+                    
+                    # Validate required fields
+                    if 'response' not in classification or 'classification' not in classification:
+                        continue
+                    
+                    class_data = classification.get('classification', {})
+                    if not isinstance(class_data, dict):
+                        continue
+                    
+                    # Normalize type values
+                    type_value = class_data.get('type', '').strip()
+                    normalized_type = None
+                    
+                    if type_value in ['إيجابي', 'ايجابي', 'ايجابية', 'إيجابية']:
+                        normalized_type = 'إيجابي'
+                    elif type_value in ['سلبي', 'سلبية']:
+                        normalized_type = 'سلبي'
+                    elif type_value in ['محايد', 'محايدة']:
+                        normalized_type = 'محايد'
+                    else:
+                        normalized_type = 'محايد'  # Default to neutral for invalid types
+                    
+                    # Create validated result with required fields
+                    result = {
+                        'response': str(classification.get('response', '')).strip(),
+                        'classification': {
+                            'type': normalized_type,
+                            'category': str(class_data.get('category', 'محايد')).strip(),
+                            'subcategory': str(class_data.get('subcategory', 'محايد')).strip(),
+                            'explanation': str(class_data.get('explanation', '')).strip()
+                        }
+                    }
+                    
+                    # Only add if we have a valid response
+                    if result['response']:
+                        validated_results.append(result)
+                        
+                except Exception as e:
+                    st.warning(f"تم تخطي تصنيف غير صالح: {str(e)}")
+                    continue
+            
+            return validated_results
             
         except json.JSONDecodeError as e:
-            # Try to clean the response and parse again
+            st.error(f"فشل في تحليل استجابة النموذج: {str(e)}")
+            st.error(f"الاستجابة الأصلية: {response_text}")
+            # Try to recover partial results if possible
             try:
-                # Remove any markdown formatting if present
-                cleaned_text = chat_response.text.strip('`').strip()
-                if cleaned_text.startswith('json'):
-                    cleaned_text = cleaned_text[4:].strip()
-                classifications = json.loads(cleaned_text)
-            except json.JSONDecodeError as e2:
-                st.markdown("""
-                    <div class="toast error">
-                        فشل في تحليل استجابة النموذج: تنسيق JSON غير صالح
-                    </div>
-                """, unsafe_allow_html=True)
-                return [None] * len(responses_batch)
-        
-        # Ensure we have a list
-        if not isinstance(classifications, list):
-            st.markdown("""
-                <div class="toast error">
-                    استجابة النموذج ليست قائمة صالحة
-                </div>
-            """, unsafe_allow_html=True)
-            classifications = [classifications]
-        
-        # Validate and normalize each classification
-        validated_classifications = []
-        for i, classification in enumerate(classifications):
-            try:
-                if not isinstance(classification, dict):
-                    validated_classifications.append(None)
-                    continue
-                
-                # Get type value, handling different possible keys
-                type_value = classification.get('type', classification.get('نوع', ''))
-                
-                # Normalize type values
-                if type_value.strip() in ['إيجابي', 'سلبي', 'ايجابية', 'سلبية', 'ايجابي', 'إيجابية']:
-                    normalized_type = 'إيجابي' if type_value.strip() in ['إيجابي', 'ايجابية', 'ايجابي'] else 'سلبي'
-                    
-                    validated_classifications.append({
-                        'type': normalized_type,
-                        'category': classification.get('category', classification.get('تصنيف', '')).strip(),
-                        'subcategory': classification.get('subcategory', classification.get('تصنيف_فرعي', '')).strip(),
-                        'explanation': classification.get('explanation', classification.get('تفسير', '')).strip()
-                    })
-                else:
-                    validated_classifications.append(None)
-            except Exception as e:
-                validated_classifications.append(None)
-        
-        return validated_classifications
-        
+                # Find the last complete object
+                import re
+                pattern = r'\{[^{}]*\}'
+                matches = re.finditer(pattern, response_text)
+                partial_results = []
+                for match in matches:
+                    try:
+                        obj = json.loads(match.group())
+                        if isinstance(obj, dict) and 'response' in obj and 'classification' in obj:
+                            partial_results.append(obj)
+                    except:
+                        continue
+                if partial_results:
+                    st.warning("تم استرداد بعض النتائج الجزئية")
+                    return partial_results
+            except:
+                pass
+            return []
+            
     except Exception as e:
-        st.markdown(f"""
-            <div class="toast error">
-                خطأ في التصنيف: {str(e)}
-            </div>
-        """, unsafe_allow_html=True)
-        return [None] * len(responses_batch)
+        st.error(f"خطأ في التصنيف: {str(e)}")
+        return []
 
 def display_experience(result, experience_type):
     """Enhanced display function for experiences"""
@@ -729,13 +720,20 @@ if st.session_state.preview_data is not None:
                         try:
                             classifications = classify_responses_batch(batch)
                             
+                            # Show parsed JSON in expander
+                            with st.expander("Debug: Parsed JSON"):
+                                st.json(classifications)
+                            
                             # Process results
                             for response, classification in zip(batch, classifications):
-                                if classification:
-                                    results.append({
+                                if classification and isinstance(classification, dict):
+                                    # Get the classification directly - it's not nested
+                                    result = {
                                         "response": response,
-                                        "classification": classification
-                                    })
+                                        "classification": classification.get('classification', {})
+                                    }
+                                    results.append(result)
+                                
                             i += len(batch)  # Move to next batch
                             
                         except Exception as e:
@@ -743,12 +741,14 @@ if st.session_state.preview_data is not None:
                             for response in batch:
                                 try:
                                     classification = classify_responses_batch([response])[0]
-                                    if classification:
-                                        results.append({
+                                    if classification and isinstance(classification, dict):
+                                        result = {
                                             "response": response,
-                                            "classification": classification
-                                        })
-                                except Exception:
+                                            "classification": classification.get('classification', {})
+                                        }
+                                        results.append(result)
+                                except Exception as e:
+                                    st.error(f"Error processing single response: {str(e)}")
                                     continue
                             i += len(batch)
                     
@@ -781,258 +781,204 @@ if st.session_state.get('results'):
     # Filter experiences
     positive_experiences = [r for r in st.session_state.results if r.get('classification', {}).get('type') == 'إيجابي']
     negative_experiences = [r for r in st.session_state.results if r.get('classification', {}).get('type') == 'سلبي']
+    neutral_experiences = [r for r in st.session_state.results if r.get('classification', {}).get('type') == 'محايد']
     
     # Create Excel file in memory
     output = io.BytesIO()
+    excel_created = False
+    
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        # Create a combined DataFrame with all results
-        all_results_df = pd.DataFrame([
-            {
-                'الاستجابة': r['response'],
-                'التصنيف': r['classification']['category'],
-                'التصنيف الفرعي': r['classification']['subcategory'],
-                'النوع': r['classification']['type'],
-                'التفسير': r['classification']['explanation']
-            }
-            for r in st.session_state.results
-        ])
-
-        # Add timestamp
-        all_results_df['تاريخ التحليل'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
-
-        # Create summary sheet
-        summary_sheet = pd.DataFrame()
-        total_responses = len(all_results_df)
-        positive_count = len(all_results_df[all_results_df['النوع'] == 'إيجابي'])
-        negative_count = len(all_results_df[all_results_df['النوع'] == 'سلبي'])
-        
-        summary_data = {
-            'المقياس': ['إجمالي الاستجابات', 'التجارب الإيجابية', 'التجارب السلبية', 
-                      'نسبة التجارب الإيجابية', 'نسبة التجارب السلبية'],
-            'القيمة': [total_responses, positive_count, negative_count,
-                     f'{(positive_count/total_responses)*100:.1f}%',
-                     f'{(negative_count/total_responses)*100:.1f}%']
-        }
-        summary_df = pd.DataFrame(summary_data)
-        
-        # Category distribution
-        category_dist = all_results_df['التصنيف'].value_counts().reset_index()
-        category_dist.columns = ['التصنيف', 'العدد']
-        category_dist['النسبة'] = (category_dist['العدد'] / total_responses * 100).round(1).astype(str) + '%'
-
-        # Write sheets
-        summary_df.to_excel(writer, sheet_name='ملخص التحليل', index=False, startrow=1)
-        category_dist.to_excel(writer, sheet_name='ملخص التحليل', index=False, startrow=7)
-        all_results_df.to_excel(writer, sheet_name='جميع النتائج', index=False)
-        
-        # Separate positive and negative experiences
-        positive_df = all_results_df[all_results_df['النوع'] == 'إيجابي']
-        negative_df = all_results_df[all_results_df['النوع'] == 'سلبي']
-        positive_df.to_excel(writer, sheet_name='التجارب الإيجابية', index=False)
-        negative_df.to_excel(writer, sheet_name='التجارب السلبية', index=False)
-
-        # Create pivot tables
-        pivot_sheet_name = 'تحليل التصنيفات'
-        category_pivot = pd.pivot_table(
-            all_results_df,
-            values='الاستجابة',
-            index=['التصنيف', 'التصنيف الفرعي'],
-            columns=['النوع'],
-            aggfunc='count',
-            fill_value=0
-        ).reset_index()
-        category_pivot.to_excel(writer, sheet_name=pivot_sheet_name)
-
-        # Get workbook and sheets
-        workbook = writer.book
-        
-        # Add charts
-        from openpyxl.chart import PieChart, BarChart, Reference
-        
-        # Summary sheet formatting
-        summary_sheet = writer.sheets['ملخص التحليل']
-        summary_sheet.sheet_view.rightToLeft = True
-        
-        # Add title
-        summary_sheet['A1'] = 'ملخص تحليل تجارب الطلاب'
-        summary_sheet['A1'].font = openpyxl.styles.Font(size=14, bold=True)
-        summary_sheet.merge_cells('A1:B1')
-        
-        # Create pie chart for positive/negative distribution
-        pie = PieChart()
-        pie.title = 'توزيع التجارب'
-        labels = Reference(summary_sheet, min_col=1, min_row=3, max_row=4)
-        data = Reference(summary_sheet, min_col=2, min_row=3, max_row=4)
-        pie.add_data(data)
-        pie.set_categories(labels)
-        summary_sheet.add_chart(pie, "D2")
-
-        # Create bar chart for category distribution
-        bar = BarChart()
-        bar.title = 'توزيع التصنيفات'
-        bar.type = "col"
-        bar.style = 10
-        bar.y_axis.title = 'العدد'
-        bar.x_axis.title = 'التصنيف'
-        
-        data = Reference(summary_sheet, min_col=2, min_row=8, max_row=8+len(category_dist))
-        cats = Reference(summary_sheet, min_col=1, min_row=8, max_row=8+len(category_dist))
-        bar.add_data(data)
-        bar.set_categories(cats)
-        summary_sheet.add_chart(bar, "D15")
-
-        # Apply conditional formatting and styling to all sheets
-        for sheet_name in writer.sheets:
-            worksheet = writer.sheets[sheet_name]
-            worksheet.sheet_view.rightToLeft = True
+        try:
+            # Create properly structured data for DataFrame
+            df_data = []
+            for result in st.session_state.results:
+                if isinstance(result, dict):
+                    classification = result.get('classification', {})
+                    df_data.append({
+                        'الاستجابة': result.get('response', ''),
+                        'التصنيف': classification.get('category', ''),
+                        'التصنيف الفرعي': classification.get('subcategory', ''),
+                        'النوع': classification.get('type', ''),
+                        'التفسير': classification.get('explanation', '')
+                    })
             
-            # Auto-adjust column widths
-            for column in worksheet.columns:
-                max_length = 0
-                column = list(column)
-                for cell in column:
-                    try:
-                        # Skip merged cells
-                        if isinstance(cell, openpyxl.cell.cell.MergedCell):
-                            continue
-                        if len(str(cell.value)) > max_length:
-                            max_length = len(str(cell.value))
-                    except:
-                        pass
-                # Only adjust if we found a valid column letter
-                if column and not isinstance(column[0], openpyxl.cell.cell.MergedCell):
-                    adjusted_width = (max_length + 2) * 1.2
-                    worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
+            # Create DataFrame from structured data
+            all_results_df = pd.DataFrame(df_data)
             
-            # Add header styling
-            for cell in worksheet[1]:
-                cell.font = openpyxl.styles.Font(bold=True, size=12)
-                cell.fill = openpyxl.styles.PatternFill(start_color='E3F2FD', end_color='E3F2FD', fill_type='solid')
-                cell.border = openpyxl.styles.Border(bottom=openpyxl.styles.Side(style='medium'))
-            
-            # Add zebra striping
-            for row in range(2, worksheet.max_row + 1):
-                if row % 2 == 0:
-                    for cell in worksheet[row]:
-                        cell.fill = openpyxl.styles.PatternFill(start_color='F8F9FA', end_color='F8F9FA', fill_type='solid')
-            
-            # Add conditional formatting for positive/negative
-            if 'النوع' in [cell.value for cell in worksheet[1]]:
-                type_col = None
-                for idx, cell in enumerate(worksheet[1], 1):
-                    if cell.value == 'النوع':
-                        type_col = idx
-                        break
+            if not all_results_df.empty:
+                # Add timestamp
+                all_results_df['تاريخ التحليل'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
                 
-                if type_col:
-                    for row in range(2, worksheet.max_row + 1):
-                        cell = worksheet.cell(row=row, column=type_col)
-                        if cell.value == 'إيجابي':
-                            cell.font = openpyxl.styles.Font(color='4CAF50')
-                        elif cell.value == 'سلبي':
-                            cell.font = openpyxl.styles.Font(color='F44336')
-
-    # Reset pointer and get value
-    output.seek(0)
-    excel_data = output.getvalue()
+                # Create summary sheet
+                total_responses = len(all_results_df)
+                
+                if total_responses > 0:
+                    positive_count = len(all_results_df[all_results_df['النوع'] == 'إيجابي'])
+                    negative_count = len(all_results_df[all_results_df['النوع'] == 'سلبي'])
+                    neutral_count = len(all_results_df[all_results_df['النوع'] == 'محايد'])
+                    
+                    summary_data = {
+                        'المقياس': ['إجمالي الاستجابات', 'التجارب الإيجابية', 'التجارب السلبية', 'التجارب المحايدة',
+                                  'نسبة التجارب الإيجابية', 'نسبة التجارب السلبية', 'نسبة التجارب المحايدة'],
+                        'القيمة': [
+                            total_responses, 
+                            positive_count, 
+                            negative_count, 
+                            neutral_count,
+                            f'{(positive_count/total_responses)*100:.1f}%' if total_responses > 0 else '0%',
+                            f'{(negative_count/total_responses)*100:.1f}%' if total_responses > 0 else '0%',
+                            f'{(neutral_count/total_responses)*100:.1f}%' if total_responses > 0 else '0%'
+                        ]
+                    }
+                    summary_df = pd.DataFrame(summary_data)
+                    
+                    # Category distribution
+                    category_dist = all_results_df['التصنيف'].value_counts().reset_index()
+                    category_dist.columns = ['التصنيف', 'العدد']
+                    category_dist['النسبة'] = (category_dist['العدد'] / total_responses * 100).round(1).astype(str) + '%'
+                    
+                    # Write sheets
+                    summary_df.to_excel(writer, sheet_name='ملخص التحليل', index=False, startrow=1)
+                    category_dist.to_excel(writer, sheet_name='ملخص التحليل', index=False, startrow=9)
+                    all_results_df.to_excel(writer, sheet_name='جميع النتائج', index=False)
+                    
+                    # Write type-specific sheets
+                    for df, sheet_name in [
+                        (all_results_df[all_results_df['النوع'] == 'إيجابي'], 'التجارب الإيجابية'),
+                        (all_results_df[all_results_df['النوع'] == 'سلبي'], 'التجارب السلبية'),
+                        (all_results_df[all_results_df['النوع'] == 'محايد'], 'التجارب المحايدة')
+                    ]:
+                        if not df.empty:
+                            df.to_excel(writer, sheet_name=sheet_name, index=False)
+                    
+                    excel_created = True
+            else:
+                st.error("لم يتم العثور على نتائج صالحة للتحليل")
+                
+        except Exception as e:
+            st.error(f"حدث خطأ أثناء إنشاء ملف Excel: {str(e)}")
     
-    # Calculate top categories and their percentages
-    category_stats = {}
-    for r in st.session_state.results:
-        category = r.get('classification', {}).get('category', '')
-        type_ = r.get('classification', {}).get('type', '')
-        if category:
-            if category not in category_stats:
-                category_stats[category] = {'total': 0, 'positive': 0}
-            category_stats[category]['total'] += 1
-            if type_ == 'إيجابي':
-                category_stats[category]['positive'] += 1
-    
-    # Calculate percentages and sort by total count
-    for cat in category_stats:
-        total = category_stats[cat]['total']
-        positive = category_stats[cat]['positive']
-        category_stats[cat]['positive_pct'] = (positive / total) * 100
-        category_stats[cat]['negative_pct'] = ((total - positive) / total) * 100
-    
-    # Get top 4 categories by total count
-    top_categories = sorted(category_stats.items(), key=lambda x: x[1]['total'], reverse=True)[:4]
-    
-    # Display enhanced summary section
-    summary_html = f"""
-        <div class="summary-container">
-            <div class="summary-header">ملخص التحليل</div>
-            <div class="summary-stats">
-                <div class="stat-card positive-stat">
-                    <div class="stat-number">{len(positive_experiences)}</div>
-                    <div class="stat-label">تجربة إيجابية</div>
+    # Only proceed with download button if Excel was created successfully
+    if excel_created:
+        # Reset pointer and get value
+        output.seek(0)
+        excel_data = output.getvalue()
+        
+        # Calculate top categories and their percentages
+        category_stats = {}
+        for r in st.session_state.results:
+            category = r.get('classification', {}).get('category', '')
+            type_ = r.get('classification', {}).get('type', '')
+            if category:
+                if category not in category_stats:
+                    category_stats[category] = {'total': 0, 'positive': 0, 'negative': 0, 'neutral': 0}
+                category_stats[category]['total'] += 1
+                if type_ == 'إيجابي':
+                    category_stats[category]['positive'] += 1
+                elif type_ == 'سلبي':
+                    category_stats[category]['negative'] += 1
+                elif type_ == 'محايد':
+                    category_stats[category]['neutral'] += 1
+        
+        # Calculate percentages and sort by total count
+        for cat in category_stats:
+            total = category_stats[cat]['total']
+            positive = category_stats[cat]['positive']
+            negative = category_stats[cat]['negative']
+            neutral = category_stats[cat]['neutral']
+            category_stats[cat]['positive_pct'] = (positive / total) * 100
+            category_stats[cat]['negative_pct'] = (negative / total) * 100
+            category_stats[cat]['neutral_pct'] = (neutral / total) * 100
+        
+        # Get top 4 categories by total count
+        top_categories = sorted(category_stats.items(), key=lambda x: x[1]['total'], reverse=True)[:4]
+        
+        # Display enhanced summary section
+        summary_html = f"""
+            <div class="summary-container">
+                <div class="summary-header">ملخص التحليل</div>
+                <div class="summary-stats">
+                    <div class="stat-card positive-stat">
+                        <div class="stat-number">{len(positive_experiences)}</div>
+                        <div class="stat-label">تجربة إيجابية</div>
+                    </div>
+                    <div class="stat-card negative-stat">
+                        <div class="stat-number">{len(negative_experiences)}</div>
+                        <div class="stat-label">تجربة سلبية</div>
+                    </div>
+                    <div class="stat-card neutral-stat">
+                        <div class="stat-number">{len(neutral_experiences)}</div>
+                        <div class="stat-label">تجربة محايدة</div>
+                    </div>
                 </div>
-                <div class="stat-card negative-stat">
-                    <div class="stat-number">{len(negative_experiences)}</div>
-                    <div class="stat-label">تجربة سلبية</div>
+                <div class="top-categories">
+                    <div class="top-categories-header">أبرز التصنيفات</div>
+                    <div class="category-grid">"""
+        
+        # Add category cards with enhanced structure
+        for cat, stats in top_categories:
+            summary_html += f"""
+                <div class="category-card">
+                    <div class="category-count">{stats['total']}</div>
+                    <div class="category-name">{cat}</div>
+                    <div class="category-percentages">
+                        <span class="positive-pct">{stats['positive_pct']:.1f}% إيجابي</span>
+                        <span class="negative-pct">{stats['negative_pct']:.1f}% سلبي</span>
+                        <span class="neutral-pct">{stats['neutral_pct']:.1f}% محايد</span>
+                    </div>
+                </div>"""
+        
+        summary_html += """
+                    </div>
                 </div>
             </div>
-            <div class="top-categories">
-                <div class="top-categories-header">أبرز التصنيفات</div>
-                <div class="category-grid">"""
-    
-    # Add category cards with enhanced structure
-    for cat, stats in top_categories:
-        summary_html += f"""
-            <div class="category-card">
-                <div class="category-count">{stats['total']}</div>
-                <div class="category-name">{cat}</div>
-                <div class="category-percentages">
-                    <span class="positive-pct">{stats['positive_pct']:.1f}% إيجابي</span>
-                    <span class="negative-pct">{stats['negative_pct']:.1f}% سلبي</span>
-                </div>
-            </div>"""
-    
-    summary_html += """
-                </div>
-            </div>
-        </div>
-    """
-    
-    # Add CSS for percentages
-    st.markdown("""
-        <style>
-        .category-percentages {
-            margin-top: 5px;
-            font-size: 0.8em;
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            text-align: center;
-        }
+        """
         
-        .positive-pct {
-            color: #4CAF50;
-        }
+        # Add CSS for neutral styling
+        st.markdown("""
+            <style>
+            .neutral-stat .stat-number {
+                background: linear-gradient(45deg, #9E9E9E, #BDBDBD);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            
+            .neutral-stat .stat-label::after {
+                background: linear-gradient(90deg, #9E9E9E, #BDBDBD);
+            }
+            
+            .neutral-stat::after {
+                content: '📊';
+            }
+            
+            .neutral-pct {
+                color: #9E9E9E;
+                padding: 0.2rem 0.5rem;
+                border-radius: 12px;
+                transition: all 0.3s ease;
+                background: rgba(255, 255, 255, 0.5);
+                border: 1px solid rgba(158, 158, 158, 0.2);
+            }
+            
+            .summary-stats {
+                grid-template-columns: repeat(3, 1fr) !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
         
-        .negative-pct {
-            color: #f44336;
-        }
+        st.markdown(summary_html, unsafe_allow_html=True)
         
-        .category-card {
-            padding: 15px 10px !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    st.markdown(summary_html, unsafe_allow_html=True)
-    
-    # Add download button
-    st.download_button(
-        "تحميل النتائج كملف Excel",
-        excel_data,
-        "classification_results.xlsx",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        key='download_excel',
-        use_container_width=True,
-    )
-    
-    # Add page switching button
-    if st.button("عرض التفاصيل", use_container_width=True):
-        switch_page("detailed_results")
-    
+        # Add download button
+        st.download_button(
+            "تحميل النتائج كملف Excel",
+            excel_data,
+            "classification_results.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key='download_excel',
+            use_container_width=True,
+        )
+        
+        # Add page switching button
+        if st.button("عرض التفاصيل", use_container_width=True):
+            switch_page("detailed_results")
+        
