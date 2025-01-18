@@ -603,14 +603,22 @@ st.markdown("""
         margin: 1em 0 !important;
     }
 
-    /* Summary section styling */
+    /* Summary section styling with glassmorphism */
     .summary-container {
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-        border-radius: 15px;
-        padding: 30px;
-        margin: 20px 0;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        border: 1px solid #e0e0e0;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        transition: all 0.3s ease;
+    }
+
+    .summary-container:hover {
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.25);
+        border: 1px solid rgba(255, 255, 255, 0.3);
     }
 
     .summary-header {
@@ -618,133 +626,234 @@ st.markdown("""
         color: #1f1f1f;
         font-size: 1.8em;
         font-weight: 700;
-        margin-bottom: 30px;
-        padding-bottom: 15px;
-        border-bottom: 2px solid #e0e0e0;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.8rem;
+        border-bottom: 2px solid rgba(33, 150, 243, 0.1);
+        position: relative;
     }
 
     .summary-stats {
-        display: flex;
-        justify-content: center;
-        gap: 40px;
-        margin-bottom: 30px;
-        padding: 20px;
-        background: #ffffff;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        padding: 0.8rem;
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
     }
 
     .stat-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        padding: 1.2rem;
+        border-radius: 12px;
         text-align: center;
-        padding: 15px 25px;
-        border-radius: 10px;
-        transition: transform 0.3s ease;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #2196F3, #64B5F6);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .positive-stat::before {
+        background: linear-gradient(90deg, #4CAF50, #81C784);
+    }
+
+    .negative-stat::before {
+        background: linear-gradient(90deg, #f44336, #E57373);
+    }
+
+    .stat-card:hover::before {
+        opacity: 1;
     }
 
     .stat-card:hover {
         transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+
+    .positive-stat::after {
+        content: '📈';
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        font-size: 1.2em;
+        opacity: 0.5;
+        transition: opacity 0.3s ease;
+    }
+
+    .negative-stat::after {
+        content: '📉';
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        font-size: 1.2em;
+        opacity: 0.5;
+        transition: opacity 0.3s ease;
+    }
+
+    .stat-card:hover::after {
+        opacity: 0.8;
     }
 
     .stat-number {
-        font-size: 2.5em;
+        font-size: 2.8em;
         font-weight: 700;
-        margin-bottom: 10px;
+        margin-bottom: 0.5rem;
+        background: linear-gradient(45deg, #1f1f1f, #424242);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
     }
 
     .positive-stat .stat-number {
-        color: #4CAF50;
-        text-shadow: 0 2px 4px rgba(76, 175, 80, 0.2);
+        background: linear-gradient(45deg, #4CAF50, #81C784);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
 
     .negative-stat .stat-number {
-        color: #f44336;
-        text-shadow: 0 2px 4px rgba(244, 67, 54, 0.2);
+        background: linear-gradient(45deg, #f44336, #E57373);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
 
     .stat-label {
         font-size: 1.2em;
         color: #666;
         font-weight: 600;
-    }
-
-    .top-categories {
-        margin-top: 25px;
-        background: #ffffff;
-        border-radius: 12px;
-        padding: 15px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-
-    .top-categories-header {
-        text-align: center;
-        font-size: 1.4em;
-        font-weight: 600;
-        margin-bottom: 20px;
-        color: #1f1f1f;
+        margin-top: 0.5rem;
         position: relative;
+        display: inline-block;
+    }
+
+    .stat-label::after {
+        content: '';
+        position: absolute;
+        bottom: -5px;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: linear-gradient(90deg, #2196F3, #64B5F6);
+        transition: width 0.3s ease;
+    }
+
+    .positive-stat .stat-label::after {
+        background: linear-gradient(90deg, #4CAF50, #81C784);
+    }
+
+    .negative-stat .stat-label::after {
+        background: linear-gradient(90deg, #f44336, #E57373);
+    }
+
+    .stat-card:hover .stat-label::after {
+        width: 100%;
+    }
+
+    /* Compact categories section */
+    .top-categories {
+        margin-top: 1.5rem;
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        border-radius: 15px;
+        padding: 1rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
     }
 
     .category-grid {
-        display: flex;
-        justify-content: space-between;
-        align-items: stretch;
-        gap: 10px;
-        padding: 0 5px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.8rem;
+        padding: 0.3rem;
     }
 
     .category-card {
-        flex: 1;
-        width: calc(25% - 8px); /* 25% width for 4 cards with gap consideration */
-        min-width: 120px;
-        max-width: 180px;
-        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-        padding: 12px 10px;
-        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        padding: 0.8rem 0.6rem;
+        border-radius: 10px;
         text-align: center;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        border: 1px solid #e0e0e0;
+        border: 1px solid rgba(255, 255, 255, 0.18);
         transition: all 0.3s ease;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
     }
 
     .category-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(33, 150, 243, 0.15);
-        border-color: #2196F3;
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        background: rgba(255, 255, 255, 0.8);
     }
 
     .category-name {
-        font-weight: 600;
-        color: #2196F3;
-        margin-top: 5px;
         font-size: 0.9em;
+        font-weight: 600;
+        color: #1f1f1f;
+        margin: 0.3rem 0;
         line-height: 1.3;
-        word-wrap: break-word;
-        max-width: 100%;
     }
 
     .category-count {
         font-size: 1.6em;
-        color: #1f1f1f;
         font-weight: 700;
-        line-height: 1;
-        background: linear-gradient(135deg, #2196F3, #64B5F6);
+        background: linear-gradient(45deg, #2196F3, #64B5F6);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 2px;
+        margin-bottom: 0.3rem;
+    }
+
+    .category-percentages {
+        margin-top: 0.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        font-size: 0.75em;
+        font-weight: 500;
+    }
+
+    .positive-pct, .negative-pct {
+        padding: 0.2rem 0.5rem;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        background: rgba(255, 255, 255, 0.5);
+    }
+
+    .positive-pct {
+        color: #4CAF50;
+        border: 1px solid rgba(76, 175, 80, 0.2);
+    }
+
+    .negative-pct {
+        color: #f44336;
+        border: 1px solid rgba(244, 67, 54, 0.2);
     }
 
     @media (max-width: 768px) {
-        .category-grid {
-            gap: 8px;
+        .stat-number {
+            font-size: 2.2em;
         }
         
-        .category-card {
-            padding: 10px 6px;
-            min-width: 90px;
+        .stat-label {
+            font-size: 1em;
+        }
+        
+        .category-grid {
+            grid-template-columns: repeat(2, 1fr);
         }
         
         .category-name {
@@ -753,6 +862,10 @@ st.markdown("""
         
         .category-count {
             font-size: 1.4em;
+        }
+        
+        .category-percentages {
+            font-size: 0.7em;
         }
     }
 
@@ -2059,22 +2172,22 @@ if st.session_state.get('results'):
     # Display enhanced summary section
     summary_html = f"""
         <div class="summary-container">
-            <div class="summary-header">ملخص التصنيف</div>
+            <div class="summary-header">ملخص التحليل</div>
             <div class="summary-stats">
                 <div class="stat-card positive-stat">
                     <div class="stat-number">{len(positive_experiences)}</div>
-                    <div class="stat-label">تجارب إيجابية</div>
+                    <div class="stat-label">تجربة إيجابية</div>
                 </div>
                 <div class="stat-card negative-stat">
                     <div class="stat-number">{len(negative_experiences)}</div>
-                    <div class="stat-label">تجارب سلبية</div>
+                    <div class="stat-label">تجربة سلبية</div>
                 </div>
             </div>
             <div class="top-categories">
-                <div class="top-categories-header">أعلى 4 تصنيفات</div>
+                <div class="top-categories-header">أبرز التصنيفات</div>
                 <div class="category-grid">"""
     
-    # Add category cards with percentages
+    # Add category cards with enhanced structure
     for cat, stats in top_categories:
         summary_html += f"""
             <div class="category-card">
