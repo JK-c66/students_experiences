@@ -783,29 +783,122 @@ st.markdown("""
         justify-content: center !important;
         margin: 20px auto !important;
         width: 100% !important;
+        max-width: 500px !important;
+        position: relative !important;
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
+        border-radius: 15px !important;
+        padding: 30px !important;
+        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.1) !important;
+        overflow: hidden !important;
     }
 
-    .spinner {
-        width: 60px !important;
-        height: 60px !important;
-        border: 6px solid #f3f3f3 !important;
-        border-top: 6px solid #2196F3 !important;
-        margin: 30px auto !important;
+    .processing-container::before {
+        content: '' !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: -100% !important;
+        width: 200% !important;
+        height: 100% !important;
+        background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(33, 150, 243, 0.1),
+            transparent
+        ) !important;
+        animation: wave 2s infinite !important;
     }
-    
+
+    @keyframes wave {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(50%); }
+    }
+
+    .loader {
+        width: 80px !important;
+        height: 80px !important;
+        position: relative !important;
+        margin: 20px auto !important;
+    }
+
+    .loader-ring {
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 50% !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+    }
+
+    .loader-ring-1 {
+        border: 3px solid rgba(33, 150, 243, 0.1) !important;
+        border-top: 3px solid #2196F3 !important;
+        animation: spin 1s linear infinite !important;
+    }
+
+    .loader-ring-2 {
+        border: 3px solid transparent !important;
+        border-top: 3px solid #64B5F6 !important;
+        animation: spin 1s linear infinite reverse !important;
+        width: 70% !important;
+        height: 70% !important;
+        margin: 15% !important;
+    }
+
+    .loader-ring-3 {
+        border: 3px solid rgba(33, 150, 243, 0.1) !important;
+        border-top: 3px solid #2196F3 !important;
+        animation: spin 1.5s linear infinite !important;
+        width: 40% !important;
+        height: 40% !important;
+        margin: 30% !important;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
     .processing-text {
         text-align: center !important;
         color: #2196F3 !important;
         font-family: 'Cairo', sans-serif !important;
-        font-size: 1.6em !important;
+        font-size: 1.4em !important;
         font-weight: 600 !important;
-        margin: 20px auto !important;
-        padding: 10px !important;
-        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%) !important;
-        border-radius: 10px !important;
-        box-shadow: 0 2px 8px rgba(33, 150, 243, 0.1) !important;
-        width: fit-content !important;
-        display: block !important;
+        margin: 15px 0 !important;
+        background: linear-gradient(45deg, #2196F3, #64B5F6) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        animation: pulse 2s infinite !important;
+    }
+
+    @keyframes pulse {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+    }
+
+    .processing-progress {
+        width: 80% !important;
+        height: 6px !important;
+        background: rgba(33, 150, 243, 0.1) !important;
+        border-radius: 3px !important;
+        margin: 15px auto !important;
+        overflow: hidden !important;
+        position: relative !important;
+    }
+
+    .progress-bar {
+        position: absolute !important;
+        width: 50% !important;
+        height: 100% !important;
+        background: linear-gradient(90deg, #2196F3, #64B5F6) !important;
+        border-radius: 3px !important;
+        animation: progress 2s ease-in-out infinite !important;
+    }
+
+    @keyframes progress {
+        0% { left: -50%; }
+        100% { left: 100%; }
     }
 
     /* Preview section styling */
@@ -1228,7 +1321,7 @@ st.markdown('<h1 style="text-align: right;">محلل تجارب الطلاب</h1
 # Replace tabs with select box for file type
 file_type = st.selectbox(
     "اختر نوع الملف",
-    ["ملف نصي", "ملف CSV", "ملف Excel"],
+    ["ملف CSV", "ملف نصي", "ملف Excel"],
     key="file_type_selector"
 )
 
@@ -1240,21 +1333,17 @@ if st.session_state.previous_file_type != file_type:
 
 responses = []
 if file_type == "ملف نصي":
+    st.markdown("""
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-right: 4px solid #2196F3; margin-bottom: 15px;">
+            <p style="margin: 0; font-family: 'Cairo', sans-serif; font-size: 1.1em; color: #1f1f1f;">
+                <strong>ملاحظة:</strong> يجب أن تكون كل استجابة في سطر جديد في الملف النصي
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+    
     txt_file = st.file_uploader("تحميل ملف نصي", type=['txt'], key="txt_uploader")
     if txt_file:
-        separator_options = {
-            "سطر جديد": "\n",
-            "فاصلة منقوطة": ";",
-            "مسافة طويلة (Tab)": "\t"
-        }
-        separator_choice = st.radio(
-            "اختر الفاصل بين الاستجابات:",
-            options=list(separator_options.keys()),
-            key="separator_choice",
-            horizontal=True
-        )
-        separator = separator_options[separator_choice]
-        responses = process_responses(txt_file, 'txt', separator=separator)
+        responses = process_responses(txt_file, 'txt', separator="\n")
 
 elif file_type == "ملف CSV":
     csv_file = st.file_uploader("تحميل ملف CSV", type=['csv'], key="csv_uploader")
@@ -1366,8 +1455,15 @@ if st.session_state.preview_data is not None:
                 processing_container = st.empty()
                 processing_container.markdown("""
                     <div class="processing-container">
-                        <div class="spinner"></div>
+                        <div class="loader">
+                            <div class="loader-ring loader-ring-1"></div>
+                            <div class="loader-ring loader-ring-2"></div>
+                            <div class="loader-ring loader-ring-3"></div>
+                        </div>
                         <div class="processing-text">جاري معالجة الاستجابات...</div>
+                        <div class="processing-progress">
+                            <div class="progress-bar"></div>
+                        </div>
                     </div>
                 """, unsafe_allow_html=True)
                 
