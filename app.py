@@ -285,21 +285,81 @@ st.markdown("""
 
     /* Preview section styling */
     .preview-section {
-        margin: 1.5em 0 !important;
+        margin: 2em 0;
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.08);
+        border: 1px solid #e0e0e0;
+        overflow: hidden;
     }
 
-    .preview-header {
-        background: #f8f9fa !important;
-        padding: 1em !important;
-        font-weight: 600 !important;
-        font-size: 1.4em !important;
-        border-bottom: 2px solid #dee2e6 !important;
-        border-radius: 8px 8px 0 0 !important;
+    .preview-header-container {
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        padding: 1em 1.5em;
+        border-bottom: 1px solid #e0e0e0;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        direction: rtl;
+    }
+
+    .preview-icon {
+        font-size: 1.5em;
+        margin-left: 0.8em;
+        background: linear-gradient(45deg, #2196F3, #64B5F6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-5px); }
+        100% { transform: translateY(0px); }
+    }
+
+    .preview-title {
+        font-family: 'Cairo', sans-serif;
+        font-size: 1.4em;
+        font-weight: 600;
+        color: #1f1f1f;
+        margin: 0;
+        position: relative;
+    }
+
+    .preview-title::after {
+        content: '';
+        position: absolute;
+        bottom: -5px;
+        right: 0;
+        width: 40px;
+        height: 3px;
+        background: linear-gradient(90deg, #2196F3, #64B5F6);
+        border-radius: 2px;
+        transition: width 0.3s ease;
+    }
+
+    .preview-header-container:hover .preview-title::after {
+        width: 100%;
     }
 
     .preview-content {
-        margin-top: 0 !important;
-        border-top: none !important;
+        padding: 1.5em;
+        background: #ffffff;
+    }
+
+    @media (max-width: 768px) {
+        .preview-header-container {
+            padding: 1em;
+        }
+        
+        .preview-title {
+            font-size: 1.2em;
+        }
+        
+        .preview-icon {
+            font-size: 1.3em;
+        }
     }
 
     /* Form elements RTL */
@@ -1045,27 +1105,78 @@ st.markdown("""
     .important-note {
         animation: fadeIn 0.5s ease-out, pulseBox 2s infinite;
     }
+
+    /* Header styling */
+    .header-container {
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        padding: 2em;
+        border-radius: 15px;
+        margin-bottom: 2em;
+        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.1);
+        border: 1px solid #e0e0e0;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .header-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 6px;
+        height: 100%;
+        background: linear-gradient(180deg, #2196F3, #64B5F6);
+        border-radius: 3px;
+    }
+    
+    .header-icon {
+        font-size: 2.5em;
+        margin-bottom: 0.3em;
+        background: linear-gradient(45deg, #2196F3, #64B5F6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: inline-block;
+    }
+    
+    .header-title {
+        font-family: 'Cairo', sans-serif;
+        font-size: 2.5em;
+        font-weight: 700;
+        color: #1f1f1f;
+        margin: 0;
+        padding: 0;
+        line-height: 1.2;
+    }
+    
+    .header-subtitle {
+        font-family: 'Cairo', sans-serif;
+        font-size: 1.2em;
+        color: #666;
+        margin-top: 0.5em;
+        line-height: 1.4;
+    }
+    
+    .header-content {
+        text-align: right;
+        direction: rtl;
+    }
+    
+    @media (max-width: 768px) {
+        .header-container {
+            padding: 1.5em;
+        }
+        
+        .header-title {
+            font-size: 2em;
+        }
+        
+        .header-subtitle {
+            font-size: 1em;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Add JavaScript for toast auto-removal
-st.markdown("""
-    <script>
-        function removeToasts() {
-            setTimeout(() => {
-                const toasts = document.querySelectorAll('.toast');
-                toasts.forEach(toast => {
-                    toast.addEventListener('animationend', (e) => {
-                        if (e.animationName === 'toast-out') {
-                            toast.remove();
-                        }
-                    });
-                });
-            }, 100);
-        }
-        removeToasts();
-    </script>
-""", unsafe_allow_html=True)
 
 #------------------------------------------------------------------------------
 # Gemini Communication
@@ -1379,7 +1490,15 @@ if 'previous_file_type' not in st.session_state:
 if st.session_state.model is None:
     st.session_state.model = initialize_gemini()
 
-st.markdown('<h1 style="text-align: right;">محلل تجارب الطلاب</h1>', unsafe_allow_html=True)
+st.markdown("""
+    <div class="header-container">
+        <div class="header-content">
+            <div class="header-icon">🎓</div>
+            <h1 class="header-title">محلل تجارب الطلاب</h1>
+            <div class="header-subtitle">تحليل وتصنيف تجارب الطلاب باستخدام الذكاء الاصطناعي</div>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
 # Replace tabs with select box for file type
 file_type = st.selectbox(
@@ -1545,8 +1664,10 @@ if st.session_state.preview_data is not None:
     # Wrap preview in collapsible section
     st.markdown("""
         <div class="preview-section">
-            <div class="preview-header">معاينة البيانات</div>
-        </div>
+            <div class="preview-header-container">
+                <div class="preview-icon">📊</div>
+                <div class="preview-title">معاينة البيانات</div>
+            </div>
     """, unsafe_allow_html=True)
     
     if file_type == "ملف نصي":
@@ -1556,7 +1677,7 @@ if st.session_state.preview_data is not None:
             responses_html += f'<div class="response-item">{response}</div>'
             
         st.markdown(f"""
-            <div class="preview-content txt-preview">
+            <div class="txt-preview">
                 <div class="responses-container">
                     {responses_html}
                 </div>
@@ -1570,7 +1691,6 @@ if st.session_state.preview_data is not None:
             hide_index=True
         )
     
-    # Close preview section
     st.markdown('</div></div>', unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns([1,2,1])
