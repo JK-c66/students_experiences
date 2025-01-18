@@ -4,7 +4,11 @@ import yaml
 import pandas as pd
 
 # Set page config
-st.set_page_config(page_title="Manage Categories", page_icon="📑", layout="wide")
+st.set_page_config(
+    page_title="إدارة التصنيفات",
+    page_icon="📑",
+    layout="wide"
+)
 
 # Add custom CSS for RTL support
 st.markdown("""
