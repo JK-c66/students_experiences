@@ -1287,6 +1287,82 @@ st.markdown("""
             font-size: 1em;
         }
     }
+
+    /* Top categories header styling */
+    .top-categories-header {
+        font-size: 1.6em !important;
+        font-weight: 700 !important;
+        color: #1f1f1f !important;
+        text-align: center !important;
+        margin: 0.8em 0 1.2em !important;
+        padding: 0.5em !important;
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%) !important;
+        border-radius: 12px !important;
+        position: relative !important;
+        overflow: hidden !important;
+        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.08) !important;
+    }
+
+    .top-categories-header::before {
+        content: '📊' !important;
+        position: absolute !important;
+        right: 15px !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        font-size: 1.2em !important;
+        opacity: 0.7 !important;
+    }
+
+    .top-categories-header::after {
+        content: '' !important;
+        position: absolute !important;
+        bottom: 0 !important;
+        left: 10% !important;
+        width: 80% !important;
+        height: 3px !important;
+        background: linear-gradient(90deg, transparent, #2196F3, transparent) !important;
+        border-radius: 3px !important;
+    }
+
+    /* Category count styling */
+    .category-count {
+        width: 100% !important;
+        height: 40px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 auto 0.8em !important;
+        background: linear-gradient(135deg, #2196F3, #64B5F6) !important;
+        border-radius: 8px !important;
+        color: #FFFFFF !important;
+        font-size: 1.8em !important;
+        font-weight: 800 !important;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2) !important;
+        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.2) !important;
+        -webkit-font-smoothing: antialiased !important;
+        -moz-osx-font-smoothing: grayscale !important;
+        -webkit-text-fill-color: initial !important;
+        -webkit-background-clip: initial !important;
+    }
+
+    .category-card:hover .category-count {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(33, 150, 243, 0.3) !important;
+    }
+
+    .category-count::before {
+        content: '' !important;
+        position: absolute !important;
+        top: -2px !important;
+        right: -2px !important;
+        bottom: -2px !important;
+        left: -2px !important;
+        background: linear-gradient(135deg, #2196F3, #64B5F6) !important;
+        border-radius: 8px !important;
+        z-index: -1 !important;
+        opacity: 0.3 !important;
+        transition: all 0.3s ease !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -2246,3 +2322,4 @@ if st.session_state.get('results'):
     # Add page switching button
     if st.button("عرض التفاصيل", use_container_width=True):
         switch_page("detailed_results")
+    
