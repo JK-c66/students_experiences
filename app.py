@@ -7,6 +7,7 @@ import io
 from streamlit_extras.switch_page_button import switch_page
 import openpyxl
 from openpyxl.chart import PieChart, BarChart, Reference
+from openpyxl.styles import Alignment, PatternFill, Font
 
 # Constants
 MIN_BATCH_SIZE = 50  # Minimum batch size for processing
@@ -91,10 +92,10 @@ def initialize_gemini():
             model_name="gemini-1.5-flash",
             generation_config=generation_config,
             system_instruction=(
-                "1. Classify the sentiment as exactly one of: {'إيجابي', 'سلبي', 'محايد'}\n"
-                "2. Assign a main category and subcategory based on the Classes.txt file\n"
-                "3. Provide a brief explanation (1-2 sentences)\n\n"
-                "Return a JSON array with one object per response:\n"
+                "1. Classify the sentiment as exactly one of: {'إيجابي', 'سلبي', 'محايد'}"
+                "2. choose the best fit category and subcategory based on the provided catagories and subcategories"
+                "3. Provide a brief explanation (1-2 sentences)"
+                "Return a JSON array with one object per response:"
                 "[\n"
                 "    {\n"
                 '        "response": "response text",\n'
@@ -105,11 +106,11 @@ def initialize_gemini():
                 '            "explanation": "brief explanation"\n'
                 "        }\n"
                 "    }\n"
-                "]\n\n"
-                "Rules:\n"
-                "1. Use 'محايد' for unclear, mixed, or neutral content\n"
-                "2. All your responses MUST be in Arabic\n"
-                "3. follow the format exactly\n"
+                "]\n"
+                "Rules:"
+                "1. Use 'خطأ' for any bad or not ralted response"
+                "2. All your responses MUST be in Arabic"
+                "3. the response must be a valid json array"
             )
         )
 
@@ -208,10 +209,7 @@ def classify_responses_batch(responses_batch):
     """Classify a batch of responses using Gemini."""
     try:
         if not st.session_state.model:
-            raise Exception("نموذج Gemini غير مهيأ")
-        
-        # Create a mapping of response IDs to responses
-        response_mapping = {str(i+1): response for i, response in enumerate(responses_batch)}
+            raise Exception("Gemini model is not initialized")
         
         # Just send the responses with their IDs
         batch_text = "\n---\n".join([f"response_{i+1}: {str(r)}" for i, r in enumerate(responses_batch)])
@@ -806,9 +804,6 @@ if st.session_state.get('results'):
             all_results_df = pd.DataFrame(df_data)
             
             if not all_results_df.empty:
-                # Add timestamp
-                all_results_df['تاريخ التحليل'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
-                
                 # Create summary sheet
                 total_responses = len(all_results_df)
                 
@@ -850,6 +845,97 @@ if st.session_state.get('results'):
                     ]:
                         if not df.empty:
                             df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+                    # Apply styling and create charts
+                    workbook = writer.book
+                    
+                    # Create color fills for different sentiments
+                    positive_fill = PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')  # Light green
+                    negative_fill = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')  # Light red
+                    neutral_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid')   # Light gray
+                    header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')    # Blue header
+                    
+                    # Create charts sheet
+                    charts_sheet = workbook.create_sheet('الرسوم البيانية')
+                    
+                    # Create pie chart for sentiment distribution
+                    pie = PieChart()
+                    labels = Reference(workbook['ملخص التحليل'], min_row=2, max_row=4, min_col=1)
+                    data = Reference(workbook['ملخص التحليل'], min_row=2, max_row=4, min_col=2)
+                    pie.add_data(data)
+                    pie.set_categories(labels)
+                    pie.title = "توزيع التجارب"
+                    charts_sheet.add_chart(pie, "A1")
+                    
+                    # Create bar chart for top categories
+                    bar = BarChart()
+                    cat_labels = Reference(workbook['ملخص التحليل'], min_row=10, max_row=10+len(category_dist), min_col=1)
+                    cat_data = Reference(workbook['ملخص التحليل'], min_row=10, max_row=10+len(category_dist), min_col=2)
+                    bar.add_data(cat_data)
+                    bar.set_categories(cat_labels)
+                    bar.title = "توزيع التصنيفات"
+                    charts_sheet.add_chart(bar, "A15")
+                    
+                    # Apply styling to all sheets
+                    for sheet_name in workbook.sheetnames:
+                        ws = workbook[sheet_name]
+                        
+                        # Set RTL
+                        ws.sheet_view.rightToLeft = True
+                        
+                        # Style headers
+                        for cell in ws[1]:
+                            if cell.value:
+                                cell.fill = header_fill
+                                cell.font = Font(bold=True, color="FFFFFF")  # White text
+                                cell.alignment = openpyxl.styles.Alignment(horizontal='right', 
+                                                                         vertical='center',
+                                                                         wrap_text=True)
+                        
+                        # Auto-fit columns and apply text wrapping
+                        for column in ws.columns:
+                            max_length = 0
+                            column = list(column)
+                            for cell in column:
+                                try:
+                                    if len(str(cell.value)) > max_length:
+                                        max_length = len(str(cell.value))
+                                except:
+                                    pass
+                            adjusted_width = min(max_length + 2, 50)  # Cap width at 50
+                            ws.column_dimensions[column[0].column_letter].width = adjusted_width
+                            
+                            # Apply text wrapping and alignment to all cells
+                            for cell in column:
+                                if cell.value:
+                                    cell.alignment = openpyxl.styles.Alignment(horizontal='right', 
+                                                                             vertical='center',
+                                                                             wrap_text=True)
+                        
+                        # Apply sentiment colors to data sheets
+                        if sheet_name in ['جميع النتائج', 'التجارب الإيجابية', 'التجارب السلبية', 'التجارب المحايدة']:
+                            # Find the sentiment column index
+                            sentiment_col = None
+                            for idx, cell in enumerate(ws[1], 1):
+                                if cell.value == 'النوع':
+                                    sentiment_col = idx
+                                    break
+                            
+                            if sentiment_col:
+                                # Apply colors based on sentiment
+                                for row in ws.iter_rows(min_row=2):  # Skip header
+                                    sentiment = row[sentiment_col-1].value
+                                    fill = None
+                                    if sentiment == 'إيجابي':
+                                        fill = positive_fill
+                                    elif sentiment == 'سلبي':
+                                        fill = negative_fill
+                                    elif sentiment == 'محايد':
+                                        fill = neutral_fill
+                                    
+                                    if fill:
+                                        for cell in row:
+                                            cell.fill = fill
                     
                     excel_created = True
             else:
