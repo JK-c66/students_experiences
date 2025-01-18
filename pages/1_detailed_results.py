@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import yaml
+import os
 
 # Page config
 st.set_page_config(
@@ -9,6 +11,37 @@ st.set_page_config(
     page_icon="📊",
     layout="centered"
 )
+
+# Function to load types
+def load_types():
+    try:
+        file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "Classes.txt")
+        with open(file_path, 'r', encoding='utf-8') as file:
+            data = yaml.safe_load(file)
+            return data.get('types', [])
+    except FileNotFoundError:
+        return []
+
+# Load types configuration
+TYPES = load_types()
+
+# Color palette for types
+TYPE_COLORS = {
+    'إيجابي': '#4CAF50',
+    'سلبي': '#f44336',
+    'محايد': '#9E9E9E'
+}
+
+def get_type_color(type_name):
+    """Get a color for a type, generating one if needed"""
+    if type_name not in TYPE_COLORS:
+        # Generate a color based on the hash of the type name
+        hash_val = hash(type_name)
+        r = (hash_val & 0xFF0000) >> 16
+        g = (hash_val & 0x00FF00) >> 8
+        b = hash_val & 0x0000FF
+        TYPE_COLORS[type_name] = f'#{r:02x}{g:02x}{b:02x}'
+    return TYPE_COLORS[type_name]
 
 # Add the same CSS from main app for consistency
 st.markdown("""
@@ -342,8 +375,9 @@ def create_charts():
     if 'filtered_results' in st.session_state and st.session_state.filtered_results:
         # Prepare data
         results = st.session_state.filtered_results
-        positive_count = len([r for r in results if r.get('classification', {}).get('type') == 'إيجابي'])
-        negative_count = len([r for r in results if r.get('classification', {}).get('type') == 'سلبي'])
+        type_counts = {}
+        for t in TYPES:
+            type_counts[t] = len([r for r in results if r.get('classification', {}).get('type') == t])
         
         # Category counts
         category_counts = {}
@@ -358,8 +392,9 @@ def create_charts():
             if cat:
                 category_counts[cat] = category_counts.get(cat, 0) + 1
                 if cat not in category_sentiment:
-                    category_sentiment[cat] = {'إيجابي': 0, 'سلبي': 0}
-                category_sentiment[cat][sentiment] = category_sentiment[cat].get(sentiment, 0) + 1
+                    category_sentiment[cat] = {t: 0 for t in TYPES}
+                if sentiment in category_sentiment[cat]:
+                    category_sentiment[cat][sentiment] = category_sentiment[cat].get(sentiment, 0) + 1
             
             if subcat:
                 subcategory_counts[subcat] = subcategory_counts.get(subcat, 0) + 1
@@ -371,12 +406,12 @@ def create_charts():
             col1, col2 = st.columns(2)
             
             with col1:
-                # Enhanced donut chart for sentiment distribution
+                # Enhanced donut chart for type distribution
                 fig_pie = go.Figure(data=[go.Pie(
-                    labels=['تجارب إيجابية', 'تجارب سلبية'],
-                    values=[positive_count, negative_count],
+                    labels=list(type_counts.keys()),
+                    values=list(type_counts.values()),
                     hole=.6,
-                    marker_colors=['#4CAF50', '#f44336'],
+                    marker_colors=[get_type_color(t) for t in type_counts.keys()],
                     textinfo='value+percent',
                     textposition='inside',
                     insidetextorientation='horizontal',
@@ -386,7 +421,7 @@ def create_charts():
                 )])
                 
                 # Add total count in center
-                total_count = positive_count + negative_count
+                total_count = sum(type_counts.values())
                 fig_pie.add_annotation(
                     text=f'المجموع<br>{total_count}',
                     x=0.5, y=0.5,
@@ -613,14 +648,16 @@ def create_charts():
 def display_experience(result, experience_type):
     """Enhanced display function for experiences"""
     try:
-        card_class = "positive" if experience_type == "positive" else "negative"
+        type_color = get_type_color(experience_type)
         
         st.markdown(f"""
-            <div class="experience-card {card_class}">
+            <div class="experience-card" style="border-right: 5px solid {type_color}">
                 <div class="card-content">
                     <div class="response-text">
                         <strong>الاستجابة:</strong>
-                        <div class="response-highlight-wrapper">{result.get('response', '')}</div>
+                        <div class="response-highlight-wrapper" style="background-color: {type_color}1A; border-left: 3px solid {type_color}80">
+                            {result.get('response', '')}
+                        </div>
                     </div>
                     <div class="category-text">
                         <strong>التصنيف:</strong> {result.get('classification', {}).get('category', '')}
@@ -736,21 +773,19 @@ if 'results' in st.session_state and st.session_state.results:
     # Display filtered experiences
     st.markdown(f'<h2 style="text-align: right;">التجارب <span class="number-badge total">{len(filtered_results)}</span></h2>', unsafe_allow_html=True)
     
-    # Separate positive and negative experiences
-    positive_experiences = [r for r in filtered_results if r.get('classification', {}).get('type') == 'إيجابي']
-    negative_experiences = [r for r in filtered_results if r.get('classification', {}).get('type') == 'سلبي']
+    # Create tabs for each type
+    exp_tabs = st.tabs([f"تجارب {t}" for t in TYPES])
     
-    # Create tabs for positive and negative experiences
-    exp_tabs = st.tabs(["التجارب الإيجابية", "التجارب السلبية"])
-    
-    with exp_tabs[0]:
-        st.markdown(f'<h3 style="text-align: right;">التجارب الإيجابية <span class="number-badge positive">{len(positive_experiences)}</span></h3>', unsafe_allow_html=True)
-        for exp in positive_experiences:
-            display_experience(exp, "positive")
-    
-    with exp_tabs[1]:
-        st.markdown(f'<h3 style="text-align: right;">التجارب السلبية <span class="number-badge negative">{len(negative_experiences)}</span></h3>', unsafe_allow_html=True)
-        for exp in negative_experiences:
-            display_experience(exp, "negative")
+    # Display experiences for each type
+    for tab, type_name in zip(exp_tabs, TYPES):
+        with tab:
+            experiences = [r for r in filtered_results if r.get('classification', {}).get('type') == type_name]
+            type_color = get_type_color(type_name)
+            st.markdown(
+                f'<h3 style="text-align: right;">تجارب {type_name} <span class="number-badge" style="background: linear-gradient(135deg, {type_color}, {type_color}CC)">{len(experiences)}</span></h3>',
+                unsafe_allow_html=True
+            )
+            for exp in experiences:
+                display_experience(exp, type_name)
 else:
     st.warning("لا توجد نتائج للعرض. يرجى العودة إلى الصفحة الرئيسية وتحميل البيانات أولاً.") 

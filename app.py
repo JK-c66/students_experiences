@@ -7,10 +7,14 @@ from pathlib import Path
 import io
 from streamlit_extras.switch_page_button import switch_page
 import openpyxl
+import yaml
 
 # Constants
-MIN_BATCH_SIZE = 10
-MAX_BATCH_SIZE = 20
+MIN_BATCH_SIZE = 30  # Minimum to ensure some parallelization
+MAX_BATCH_SIZE = 100  # Maximum for very short responses
+MAX_TOKENS_PER_BATCH = 6000  # Conservative limit for Gemini's context window
+TOKENS_PER_CHAR_ESTIMATE = 0.5  # Rough estimate of tokens per character
+PROMPT_TEMPLATE_TOKENS = 500  # Estimated tokens for the classification prompt template
 
 # Configure Gemini API and page settings
 st.set_page_config(
@@ -19,1353 +23,9 @@ st.set_page_config(
     layout="centered"
 )
 
-# Add custom CSS for RTL support and centering
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-
-    /* Global RTL settings */
-    .main {
-        direction: rtl !important;
-        font-family: 'Cairo', sans-serif !important;
-        padding: 1em !important;
-        font-size: 16px !important;
-    }
-    
-    /* Text alignment for all elements */
-    .stMarkdown, .stText, .stTitle, div[data-testid="stText"], .stProgress > div > div {
-        text-align: right !important;
-        direction: rtl !important;
-        font-family: 'Cairo', sans-serif !important;
-        font-size: 1.1em !important;
-    }
-
-    /* Enhanced RTL for all streamlit elements */
-    .element-container, .stTextInput, .stSelectbox, .stDateInput {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-
-    /* Increase font size for all inputs */
-    .stTextInput input, .stSelectbox select, .stDateInput input {
-        font-size: 1.1em !important;
-        font-family: 'Cairo', sans-serif !important;
-    }
-
-    /* RTL for file uploader */
-    .stFileUploader {
-        direction: rtl !important;
-        text-align: right !important;
-        font-size: 1.1em !important;
-    }
-
-    /* RTL for radio buttons */
-    .stRadio > div {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-
-    /* RTL for dataframe */
-    .dataframe {
-        direction: rtl !important;
-        text-align: right !important;
-        font-size: 1.1em !important;
-    }
-
-    /* Increase font size for buttons */
-    .stButton>button {
-        font-size: 1.2em !important;
-        padding: 1em 1.5em !important;
-    }
-
-    /* Headers with increased font size */
-    h1 {
-        font-size: 2.8em !important;
-    }
-
-    h2 {
-        font-size: 2.3em !important;
-    }
-
-    h3 {
-        font-size: 1.8em !important;
-    }
-
-    /* Experience cards with increased font size */
-    .experience-card {
-        font-size: 1.1em !important;
-    }
-
-    /* Summary section with increased font size */
-    .summary-container {
-        font-size: 1.1em !important;
-    }
-
-    .stat-number {
-        font-size: 2.8em !important;
-    }
-
-    .stat-label {
-        font-size: 1.4em !important;
-    }
-
-    /* Category cards with increased font size */
-    .category-name {
-        font-size: 1.1em !important;
-    }
-
-    .category-count {
-        font-size: 1.8em !important;
-    }
-
-    /* Toast messages with increased font size */
-    .toast {
-        font-size: 1.2em !important;
-        text-align: right !important;
-        direction: rtl !important;
-    }
-
-    /* Preview section with increased font size */
-    .preview-header {
-        font-size: 1.6em !important;
-    }
-
-    .preview-content {
-        font-size: 1.1em !important;
-    }
-
-    /* Processing text with increased font size */
-    .processing-text {
-        font-size: 1.4em !important;
-        text-align: right !important;
-    }
-
-    /* RTL for select boxes */
-    div[data-baseweb="select"] {
-        direction: rtl !important;
-    }
-
-    div[data-baseweb="select"] > div {
-        text-align: right !important;
-    }
-
-    /* RTL for tooltips */
-    .stTooltipIcon {
-        direction: rtl !important;
-    }
-
-    /* RTL for tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        direction: rtl !important;
-    }
-
-    /* RTL for metrics */
-    .stMetric {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-
-    /* RTL for expander */
-    .streamlit-expanderHeader {
-        direction: rtl !important;
-        text-align: right !important;
-        font-size: 1.2em !important;
-    }
-
-    /* Button alignment and styling */
-    .stButton>button {
-        float: right !important;
-        width: 100% !important;
-        font-family: 'Cairo', sans-serif !important;
-        font-size: 1.1em !important;
-        padding: 0.8em 1.5em !important;
-        background-color: #2196F3 !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 8px !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 2px 5px rgba(33, 150, 243, 0.3) !important;
-    }
-
-    .stButton>button:hover {
-        background-color: #1976D2 !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 8px rgba(33, 150, 243, 0.4) !important;
-    }
-    
-    /* Header and toolbar RTL */
-    div[data-testid="stToolbar"], div[data-testid="stHeader"] {
-        direction: rtl !important;
-    }
-    
-    /* Headings styling */
-    h1, h2, h3 {
-        font-family: 'Cairo', sans-serif !important;
-        font-weight: 700 !important;
-        color: #1f1f1f !important;
-        text-align: right !important;
-        margin-bottom: 0.8em !important;
-        padding-right: 0.5em !important;
-        border-right: 4px solid #2196F3 !important;
-    }
-
-    h1 {
-        font-size: 2.5em !important;
-    }
-
-    h2 {
-        font-size: 2em !important;
-    }
-    
-    /* File uploader styling */
-    .stFileUploader {
-        padding: 1.5em !important;
-        background: #f8f9fa !important;
-        border-radius: 12px !important;
-        border: 2px dashed #dee2e6 !important;
-        margin: 1em 0 !important;
-    }
-
-    .stFileUploader:hover {
-        border-color: #2196F3 !important;
-        background: #f1f8fe !important;
-    }
-
-    /* Select box styling */
-    .stSelectbox > div > div {
-        font-family: 'Cairo', sans-serif !important;
-        border-radius: 8px !important;
-    }
-    
-    /* Radio button styling */
-    div.row-widget.stRadio > div {
-        display: flex !important;
-        flex-direction: row !important;
-        justify-content: flex-start !important;
-        gap: 2em !important;
-        direction: rtl !important;
-        margin: 1em 0 !important;
-    }
-    
-    div.row-widget.stRadio > div[role="radiogroup"] > label {
-        background: #f8f9fa !important;
-        padding: 0.7em 1.2em !important;
-        border-radius: 8px !important;
-        cursor: pointer !important;
-        transition: all 0.2s ease !important;
-        text-align: center !important;
-        font-family: 'Cairo', sans-serif !important;
-        border: 1px solid #e0e0e0 !important;
-        flex: 1 !important;
-        min-width: 120px !important;
-        direction: rtl !important;
-    }
-    
-    div.row-widget.stRadio > div[role="radiogroup"] > label:hover {
-        background: #e9ecef !important;
-        transform: translateY(-2px) !important;
-        border-color: #2196F3 !important;
-    }
-    
-    div.row-widget.stRadio > div[role="radiogroup"] > label[data-baseweb="radio"] > div:first-child {
-        display: none !important;
-    }
-
-    /* Radio button label styling */
-    .stRadio > label {
-        text-align: right !important;
-        width: 100% !important;
-        display: block !important;
-        margin-bottom: 0.5em !important;
-        font-family: 'Cairo', sans-serif !important;
-        font-weight: 600 !important;
-        color: #1f1f1f !important;
-        direction: rtl !important;
-    }
-
-    /* Preview section styling */
-    .preview-section {
-        margin: 2em 0;
-        background: #ffffff;
-        border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.08);
-        border: 1px solid #e0e0e0;
-        overflow: hidden;
-    }
-
-    .preview-header-container {
-        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-        padding: 1em 1.5em;
-        border-bottom: 1px solid #e0e0e0;
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        direction: rtl;
-    }
-
-    .preview-icon {
-        font-size: 1.5em;
-        margin-left: 0.8em;
-        background: linear-gradient(45deg, #2196F3, #64B5F6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        animation: float 3s ease-in-out infinite;
-    }
-
-    @keyframes float {
-        0% { transform: translateY(0px); }
-        50% { transform: translateY(-5px); }
-        100% { transform: translateY(0px); }
-    }
-
-    .preview-title {
-        font-family: 'Cairo', sans-serif;
-        font-size: 1.4em;
-        font-weight: 600;
-        color: #1f1f1f;
-        margin: 0;
-        position: relative;
-    }
-
-    .preview-title::after {
-        content: '';
-        position: absolute;
-        bottom: -5px;
-        right: 0;
-        width: 40px;
-        height: 3px;
-        background: linear-gradient(90deg, #2196F3, #64B5F6);
-        border-radius: 2px;
-        transition: width 0.3s ease;
-    }
-
-    .preview-header-container:hover .preview-title::after {
-        width: 100%;
-    }
-
-    .preview-content {
-        padding: 1.5em;
-        background: #ffffff;
-    }
-
-    @media (max-width: 768px) {
-        .preview-header-container {
-            padding: 1em;
-        }
-        
-        .preview-title {
-            font-size: 1.2em;
-        }
-        
-        .preview-icon {
-            font-size: 1.3em;
-        }
-    }
-
-    /* Form elements RTL */
-    .stSelectbox, .stTextInput {
-        direction: rtl !important;
-        text-align: right !important;
-        font-family: 'Cairo', sans-serif !important;
-    }
-
-    /* Progress bar styling */
-    .stProgress > div > div {
-        background-color: #2196F3 !important;
-        height: 8px !important;
-        border-radius: 4px !important;
-    }
-
-    .stProgress > div {
-        background-color: #e3f2fd !important;
-        border-radius: 4px !important;
-    }
-
-    /* Experience cards styling */
-    .experience-card {
-        background: #ffffff;
-        border-radius: 12px;
-        padding: 1.5em;
-        margin: 1em 0;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        border: 1px solid #e0e0e0;
-        font-family: 'Cairo', sans-serif !important;
-        transition: all 0.3s ease;
-    }
-
-    .experience-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-
-    .experience-card.positive {
-        border-right: 5px solid #4CAF50;
-    }
-
-    .experience-card.negative {
-        border-right: 5px solid #f44336;
-    }
-
-    /* Statistics box styling */
-    .stats-box {
-        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-        border-radius: 12px;
-        padding: 1.5em;
-        margin-bottom: 1em !important;
-        text-align: center;
-        font-family: 'Cairo', sans-serif !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        border: 1px solid #e0e0e0;
-    }
-
-    .stats-number {
-        font-size: 2.5em;
-        font-weight: bold;
-        margin: 0.5em 0;
-        color: #2196F3;
-        text-shadow: 1px 1px 0 rgba(0,0,0,0.1);
-    }
-
-    /* Form label styling */
-    .stSelectbox > label, 
-    .stFileUploader > label,
-    div[data-baseweb="select"] > label,
-    .stRadio > label {
-        font-size: 1.4em !important;
-        font-weight: 600 !important;
-        color: #1f1f1f !important;
-        margin-bottom: 0.8em !important;
-        display: block !important;
-        font-family: 'Cairo', sans-serif !important;
-    }
-
-    /* Progress bar container */
-    .stProgress {
-        margin: 2em 0 !important;
-    }
-
-    /* Progress bar styling */
-    .stProgress > div > div {
-        background: linear-gradient(90deg, #2196F3 0%, #64B5F6 50%, #2196F3 100%) !important;
-        background-size: 200% 100% !important;
-        animation: progress-pulse 2s ease-in-out infinite !important;
-        height: 10px !important;
-        border-radius: 5px !important;
-    }
-
-    @keyframes progress-pulse {
-        0% { background-position: 100% 0; }
-        100% { background-position: -100% 0; }
-    }
-
-    .stProgress > div {
-        background-color: #e3f2fd !important;
-        border-radius: 5px !important;
-        height: 10px !important;
-    }
-
-    /* Progress message */
-    .progress-message {
-        text-align: center !important;
-        margin: 1em 0 !important;
-        font-family: 'Cairo', sans-serif !important;
-        font-size: 1.1em !important;
-        color: #1976D2 !important;
-    }
-
-    /* Toast styling */
-    .toast {
-        position: fixed !important;
-        top: 80px !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        padding: 1em 1.5em !important;
-        border-radius: 8px !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
-        font-family: 'Cairo', sans-serif !important;
-        font-size: 1.1em !important;
-        margin-bottom: 10px !important;
-        z-index: 999999 !important;
-        min-width: 300px !important;
-        max-width: 80% !important;
-        animation: toast-slide 3s forwards !important;
-    }
-
-    @keyframes toast-slide {
-        0% { transform: translate(-50%, -100%); opacity: 0; }
-        10% { transform: translate(-50%, 0); opacity: 1; }
-        90% { transform: translate(-50%, 0); opacity: 1; }
-        100% { transform: translate(-50%, -100%); opacity: 0; }
-    }
-
-    .toast.success {
-        background-color: #4CAF50 !important;
-        color: white !important;
-        border-right: 4px solid #2E7D32 !important;
-    }
-
-    .toast.error {
-        background-color: #f44336 !important;
-        color: white !important;
-        border-right: 4px solid #C62828 !important;
-    }
-
-    /* Tabs styling for RTL */
-    .stTabs {
-        direction: rtl !important;
-    }
-
-    .stTabs > div[role="tablist"] {
-        direction: rtl !important;
-        justify-content: flex-start !important;
-        gap: 1em !important;
-    }
-
-    .stTabs [role="tab"] {
-        font-family: 'Cairo', sans-serif !important;
-        font-size: 1.1em !important;
-        padding: 0.5em 1em !important;
-        border-radius: 8px !important;
-    }
-
-    /* Info bubble styling */
-    .experience-card {
-        position: relative !important;
-    }
-
-    .info-link-container {
-        position: absolute !important;
-        left: 15px !important;
-        top: 15px !important;
-    }
-
-    .info-link {
-        display: inline-block !important;
-        width: 24px !important;
-        height: 24px !important;
-        background: #2196F3 !important;
-        color: white !important;
-        border-radius: 50% !important;
-        text-align: center !important;
-        line-height: 24px !important;
-        text-decoration: none !important;
-        font-weight: bold !important;
-    }
-
-    .info-bubble {
-        display: none !important;
-        position: absolute !important;
-        left: 30px !important;
-        top: 0 !important;
-        background: white !important;
-        border: 1px solid #e0e0e0 !important;
-        border-radius: 8px !important;
-        padding: 10px !important;
-        width: 250px !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
-        z-index: 1000 !important;
-    }
-
-    .info-link:hover + .info-bubble {
-        display: block !important;
-    }
-
-    .spinner {
-        width: 50px;
-        height: 50px;
-        border: 5px solid #f3f3f3;
-        border-top: 5px solid #2196F3;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin: 20px auto;
-    }
-    
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    
-    .processing-text {
-        text-align: center;
-        color: #2196F3;
-        font-family: 'Cairo', sans-serif;
-        margin: 10px 0;
-        font-size: 1.2em;
-    }
-
-    /* Remove toast styling */
-    .stSuccess {
-        font-family: 'Cairo', sans-serif !important;
-        direction: rtl !important;
-        text-align: right !important;
-        padding: 1em !important;
-        border-radius: 8px !important;
-        margin: 1em 0 !important;
-    }
-
-    /* Summary section styling with glassmorphism */
-    .summary-container {
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border-radius: 20px;
-        padding: 1.5rem;
-        margin: 1.5rem 0;
-        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        transition: all 0.3s ease;
-    }
-
-    .summary-container:hover {
-        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.25);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-    }
-
-    .summary-header {
-        text-align: center;
-        color: #1f1f1f;
-        font-size: 1.8em;
-        font-weight: 700;
-        margin-bottom: 1.5rem;
-        padding-bottom: 0.8rem;
-        border-bottom: 2px solid rgba(33, 150, 243, 0.1);
-        position: relative;
-    }
-
-    .summary-stats {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-        padding: 0.8rem;
-        background: rgba(255, 255, 255, 0.5);
-        backdrop-filter: blur(5px);
-        -webkit-backdrop-filter: blur(5px);
-        border-radius: 15px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-    }
-
-    .stat-card {
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(5px);
-        -webkit-backdrop-filter: blur(5px);
-        padding: 1.2rem;
-        border-radius: 12px;
-        text-align: center;
-        transition: all 0.3s ease;
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #2196F3, #64B5F6);
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-
-    .positive-stat::before {
-        background: linear-gradient(90deg, #4CAF50, #81C784);
-    }
-
-    .negative-stat::before {
-        background: linear-gradient(90deg, #f44336, #E57373);
-    }
-
-    .stat-card:hover::before {
-        opacity: 1;
-    }
-
-    .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-    }
-
-    .positive-stat::after {
-        content: '📈';
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        font-size: 1.2em;
-        opacity: 0.5;
-        transition: opacity 0.3s ease;
-    }
-
-    .negative-stat::after {
-        content: '📉';
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        font-size: 1.2em;
-        opacity: 0.5;
-        transition: opacity 0.3s ease;
-    }
-
-    .stat-card:hover::after {
-        opacity: 0.8;
-    }
-
-    .stat-number {
-        font-size: 2.8em;
-        font-weight: 700;
-        margin-bottom: 0.5rem;
-        background: linear-gradient(45deg, #1f1f1f, #424242);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .positive-stat .stat-number {
-        background: linear-gradient(45deg, #4CAF50, #81C784);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-
-    .negative-stat .stat-number {
-        background: linear-gradient(45deg, #f44336, #E57373);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-
-    .stat-label {
-        font-size: 1.2em;
-        color: #666;
-        font-weight: 600;
-        margin-top: 0.5rem;
-        position: relative;
-        display: inline-block;
-    }
-
-    .stat-label::after {
-        content: '';
-        position: absolute;
-        bottom: -5px;
-        left: 0;
-        width: 0;
-        height: 2px;
-        background: linear-gradient(90deg, #2196F3, #64B5F6);
-        transition: width 0.3s ease;
-    }
-
-    .positive-stat .stat-label::after {
-        background: linear-gradient(90deg, #4CAF50, #81C784);
-    }
-
-    .negative-stat .stat-label::after {
-        background: linear-gradient(90deg, #f44336, #E57373);
-    }
-
-    .stat-card:hover .stat-label::after {
-        width: 100%;
-    }
-
-    /* Compact categories section */
-    .top-categories {
-        margin-top: 1.5rem;
-        background: rgba(255, 255, 255, 0.5);
-        backdrop-filter: blur(5px);
-        -webkit-backdrop-filter: blur(5px);
-        border-radius: 15px;
-        padding: 1rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-    }
-
-    .category-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 0.8rem;
-        padding: 0.3rem;
-    }
-
-    .category-card {
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(5px);
-        -webkit-backdrop-filter: blur(5px);
-        padding: 0.8rem 0.6rem;
-        border-radius: 10px;
-        text-align: center;
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        transition: all 0.3s ease;
-    }
-
-    .category-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        background: rgba(255, 255, 255, 0.8);
-    }
-
-    .category-name {
-        font-size: 0.9em;
-        font-weight: 600;
-        color: #1f1f1f;
-        margin: 0.3rem 0;
-        line-height: 1.3;
-    }
-
-    .category-count {
-        font-size: 1.6em;
-        font-weight: 700;
-        background: linear-gradient(45deg, #2196F3, #64B5F6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.3rem;
-    }
-
-    .category-percentages {
-        margin-top: 0.5rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.3rem;
-        font-size: 0.75em;
-        font-weight: 500;
-    }
-
-    .positive-pct, .negative-pct {
-        padding: 0.2rem 0.5rem;
-        border-radius: 12px;
-        transition: all 0.3s ease;
-        background: rgba(255, 255, 255, 0.5);
-    }
-
-    .positive-pct {
-        color: #4CAF50;
-        border: 1px solid rgba(76, 175, 80, 0.2);
-    }
-
-    .negative-pct {
-        color: #f44336;
-        border: 1px solid rgba(244, 67, 54, 0.2);
-    }
-
-    @media (max-width: 768px) {
-        .stat-number {
-            font-size: 2.2em;
-        }
-        
-        .stat-label {
-            font-size: 1em;
-        }
-        
-        .category-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-        
-        .category-name {
-            font-size: 0.85em;
-        }
-        
-        .category-count {
-            font-size: 1.4em;
-        }
-        
-        .category-percentages {
-            font-size: 0.7em;
-        }
-    }
-
-    /* Download button styling */
-    .stDownloadButton {
-        width: 100%;
-        margin: 20px 0;
-    }
-
-    .stDownloadButton button {
-        width: 100% !important;
-        font-family: 'Cairo', sans-serif !important;
-        background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%) !important;
-        color: white !important;
-        padding: 15px 30px !important;
-        border: none !important;
-        border-radius: 10px !important;
-        font-size: 1.2em !important;
-        font-weight: 600 !important;
-        cursor: pointer !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3) !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 10px !important;
-    }
-
-    .stDownloadButton button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4) !important;
-        background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%) !important;
-    }
-
-    .stDownloadButton button::before {
-        content: "📥" !important;
-        font-size: 1.2em !important;
-    }
-
-    /* Category percentages styling */
-    .category-percentages {
-        margin-top: 5px;
-        font-size: 0.8em;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        text-align: center;
-    }
-
-    .positive-pct {
-        color: #4CAF50;
-    }
-
-    .negative-pct {
-        color: #f44336;
-    }
-
-    .category-card {
-        padding: 15px 10px !important;
-    }
-
-    /* Radio button and select box labels with larger font */
-    div.row-widget.stRadio > div[role="radiogroup"] > label {
-        font-size: 1.3em !important;
-        padding: 0.8em 1.5em !important;
-    }
-
-    .stSelectbox > label {
-        font-size: 1.5em !important;
-        font-weight: 600 !important;
-        margin-bottom: 1em !important;
-        color: #1f1f1f !important;
-    }
-
-    /* Radio group label */
-    .stRadio > label {
-        font-size: 1.5em !important;
-        font-weight: 600 !important;
-        margin-bottom: 1em !important;
-        color: #1f1f1f !important;
-    }
-
-    /* Processing section styling */
-    .processing-container {
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: center !important;
-        margin: 20px auto !important;
-        width: 100% !important;
-        max-width: 500px !important;
-        position: relative !important;
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
-        border-radius: 15px !important;
-        padding: 30px !important;
-        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.1) !important;
-        overflow: hidden !important;
-    }
-
-    .processing-container::before {
-        content: '' !important;
-        position: absolute !important;
-        top: 0 !important;
-        left: -100% !important;
-        width: 200% !important;
-        height: 100% !important;
-        background: linear-gradient(
-            90deg,
-            transparent,
-            rgba(33, 150, 243, 0.1),
-            transparent
-        ) !important;
-        animation: wave 2s infinite !important;
-    }
-
-    @keyframes wave {
-        0% { transform: translateX(0); }
-        100% { transform: translateX(50%); }
-    }
-
-    .loader {
-        width: 80px !important;
-        height: 80px !important;
-        position: relative !important;
-        margin: 20px auto !important;
-    }
-
-    .loader-ring {
-        width: 100% !important;
-        height: 100% !important;
-        border-radius: 50% !important;
-        position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
-    }
-
-    .loader-ring-1 {
-        border: 3px solid rgba(33, 150, 243, 0.1) !important;
-        border-top: 3px solid #2196F3 !important;
-        animation: spin 1s linear infinite !important;
-    }
-
-    .loader-ring-2 {
-        border: 3px solid transparent !important;
-        border-top: 3px solid #64B5F6 !important;
-        animation: spin 1s linear infinite reverse !important;
-        width: 70% !important;
-        height: 70% !important;
-        margin: 15% !important;
-    }
-
-    .loader-ring-3 {
-        border: 3px solid rgba(33, 150, 243, 0.1) !important;
-        border-top: 3px solid #2196F3 !important;
-        animation: spin 1.5s linear infinite !important;
-        width: 40% !important;
-        height: 40% !important;
-        margin: 30% !important;
-    }
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    .processing-text {
-        text-align: center !important;
-        color: #2196F3 !important;
-        font-family: 'Cairo', sans-serif !important;
-        font-size: 1.4em !important;
-        font-weight: 600 !important;
-        margin: 15px 0 !important;
-        background: linear-gradient(45deg, #2196F3, #64B5F6) !important;
-        -webkit-background-clip: text !important;
-        -webkit-text-fill-color: transparent !important;
-        animation: pulse 2s infinite !important;
-    }
-
-    @keyframes pulse {
-        0% { opacity: 0.6; }
-        50% { opacity: 1; }
-        100% { opacity: 0.6; }
-    }
-
-    .processing-progress {
-        width: 80% !important;
-        height: 6px !important;
-        background: rgba(33, 150, 243, 0.1) !important;
-        border-radius: 3px !important;
-        margin: 15px auto !important;
-        overflow: hidden !important;
-        position: relative !important;
-    }
-
-    .progress-bar {
-        position: absolute !important;
-        width: 50% !important;
-        height: 100% !important;
-        background: linear-gradient(90deg, #2196F3, #64B5F6) !important;
-        border-radius: 3px !important;
-        animation: progress 2s ease-in-out infinite !important;
-    }
-
-    @keyframes progress {
-        0% { left: -50%; }
-        100% { left: 100%; }
-    }
-
-    /* Preview section styling */
-    .preview-content {
-        max-height: 300px;
-        overflow-y: auto;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 10px;
-        margin: 10px 0;
-        background: #ffffff;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-
-    /* Enhanced text preview styling */
-    .txt-preview {
-        display: block;
-        direction: rtl;
-        position: relative;
-        padding: 0;
-        background: #ffffff;
-        font-family: 'Cairo', sans-serif;
-        line-height: 1.6;
-    }
-
-    .responses-container {
-        padding: 15px 45px 15px 15px;
-        counter-reset: response-counter;
-    }
-
-    .response-item {
-        position: relative;
-        padding: 8px 15px;
-        margin: 5px 0;
-        border-radius: 6px;
-        background: #f8f9fa;
-        transition: all 0.2s ease;
-        border-right: 3px solid #2196F3;
-        counter-increment: response-counter;
-    }
-
-    .response-item::before {
-        content: counter(response-counter);
-        position: absolute;
-        right: -30px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #666;
-        font-size: 0.9em;
-        width: 20px;
-        text-align: left;
-    }
-
-    .response-item:hover {
-        background: #f1f8fe;
-        transform: translateX(-2px);
-        box-shadow: 0 2px 5px rgba(33, 150, 243, 0.1);
-    }
-
-    /* Scrollbar styling for the preview */
-    .txt-preview::-webkit-scrollbar {
-        width: 8px;
-    }
-
-    .txt-preview::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 4px;
-    }
-
-    .txt-preview::-webkit-scrollbar-thumb {
-        background: #2196F3;
-        border-radius: 4px;
-    }
-
-    .txt-preview::-webkit-scrollbar-thumb:hover {
-        background: #1976D2;
-    }
-
-    /* Ensure text wrapping */
-    .response-item {
-        white-space: pre-wrap;
-        word-wrap: break-word;
-    }
-
-    @keyframes pulseBox {
-        0% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4); }
-        70% { box-shadow: 0 0 0 10px rgba(33, 150, 243, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0); }
-    }
-    
-    .important-note {
-        background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
-        padding: 20px;
-        border-radius: 12px;
-        border-right: 4px solid #2196F3;
-        margin: 20px 0;
-        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.1);
-        animation: pulseBox 2s infinite;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .important-note::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 2px;
-        background: linear-gradient(90deg, #2196F3, #64B5F6);
-    }
-    
-    .note-icon {
-        font-size: 1.5em;
-        margin-left: 10px;
-        color: #2196F3;
-        vertical-align: middle;
-    }
-    
-    .note-header {
-        font-family: 'Cairo', sans-serif;
-        font-size: 1.3em;
-        font-weight: 700;
-        color: #1565C0;
-        margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-    }
-    
-    .note-content {
-        font-family: 'Cairo', sans-serif;
-        font-size: 1.1em;
-        color: #1f1f1f;
-        line-height: 1.6;
-        margin: 0;
-        padding-right: 15px;
-    }
-    
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    
-    .important-note {
-        animation: fadeIn 0.5s ease-out, pulseBox 2s infinite;
-    }
-
-    /* Header styling */
-    .header-container {
-        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-        padding: 2em;
-        border-radius: 15px;
-        margin-bottom: 2em;
-        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.1);
-        border: 1px solid #e0e0e0;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .header-container::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 6px;
-        height: 100%;
-        background: linear-gradient(180deg, #2196F3, #64B5F6);
-        border-radius: 3px;
-    }
-    
-    .header-icon {
-        font-size: 2.5em;
-        margin-bottom: 0.3em;
-        background: linear-gradient(45deg, #2196F3, #64B5F6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        display: inline-block;
-    }
-    
-    .header-title {
-        font-family: 'Cairo', sans-serif;
-        font-size: 2.5em;
-        font-weight: 700;
-        color: #1f1f1f;
-        margin: 0;
-        padding: 0;
-        line-height: 1.2;
-    }
-    
-    .header-subtitle {
-        font-family: 'Cairo', sans-serif;
-        font-size: 1.2em;
-        color: #666;
-        margin-top: 0.5em;
-        line-height: 1.4;
-    }
-    
-    .header-content {
-        text-align: right;
-        direction: rtl;
-    }
-    
-    @media (max-width: 768px) {
-        .header-container {
-            padding: 1.5em;
-        }
-        
-        .header-title {
-            font-size: 2em;
-        }
-        
-        .header-subtitle {
-            font-size: 1em;
-        }
-    }
-
-    /* Top categories header styling */
-    .top-categories-header {
-        font-size: 1.6em !important;
-        font-weight: 700 !important;
-        color: #1f1f1f !important;
-        text-align: center !important;
-        margin: 0.8em 0 1.2em !important;
-        padding: 0.5em !important;
-        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%) !important;
-        border-radius: 12px !important;
-        position: relative !important;
-        overflow: hidden !important;
-        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.08) !important;
-    }
-
-    .top-categories-header::before {
-        content: '📊' !important;
-        position: absolute !important;
-        right: 15px !important;
-        top: 50% !important;
-        transform: translateY(-50%) !important;
-        font-size: 1.2em !important;
-        opacity: 0.7 !important;
-    }
-
-    .top-categories-header::after {
-        content: '' !important;
-        position: absolute !important;
-        bottom: 0 !important;
-        left: 10% !important;
-        width: 80% !important;
-        height: 3px !important;
-        background: linear-gradient(90deg, transparent, #2196F3, transparent) !important;
-        border-radius: 3px !important;
-    }
-
-    /* Category count styling */
-    .category-count {
-        width: 100% !important;
-        height: 40px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        margin: 0 auto 0.8em !important;
-        background: linear-gradient(135deg, #2196F3, #64B5F6) !important;
-        border-radius: 8px !important;
-        color: #FFFFFF !important;
-        font-size: 1.8em !important;
-        font-weight: 800 !important;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2) !important;
-        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.2) !important;
-        -webkit-font-smoothing: antialiased !important;
-        -moz-osx-font-smoothing: grayscale !important;
-        -webkit-text-fill-color: initial !important;
-        -webkit-background-clip: initial !important;
-    }
-
-    .category-card:hover .category-count {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(33, 150, 243, 0.3) !important;
-    }
-
-    .category-count::before {
-        content: '' !important;
-        position: absolute !important;
-        top: -2px !important;
-        right: -2px !important;
-        bottom: -2px !important;
-        left: -2px !important;
-        background: linear-gradient(135deg, #2196F3, #64B5F6) !important;
-        border-radius: 8px !important;
-        z-index: -1 !important;
-        opacity: 0.3 !important;
-        transition: all 0.3s ease !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
+# Load and apply external CSS
+with open('static/css/main.css', encoding='utf-8') as f:
+    st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
 #------------------------------------------------------------------------------
 # Gemini Communication
@@ -1412,7 +72,7 @@ def wait_for_files_active(files):
     return True
 
 def initialize_gemini():
-    """Initialize Gemini model with API key from streamlit secrets."""
+    """Initialize Gemini model with categories and types."""
     try:
         # Get API key from streamlit secrets
         api_key = st.secrets["GEMINI_API_KEY"]
@@ -1435,17 +95,13 @@ def initialize_gemini():
             model_name="gemini-1.5-flash",
             generation_config=generation_config,
             system_instruction=(
-                "according to the categories mentinoed. which category does the provided text fit in the most? "
-                "what is the most appropriate subcategory? and what is the most appropriate type (positive or negative)? "
-                "you must use a category, subcategory, and type from the file only, choose from them what fits the case the most. "
-                "the output should be in arabic. make the a json object. "
-                "the keys are: category, subcategory, type, explanation. "
+                "according to the categories mentioned, classify the provided text into the most appropriate category, "
+                "subcategory, and type. You must use categories, subcategories, and types from the file only. "
+                "Choose what fits the case the most. The output should be in Arabic."
             )
         )
 
-        # Check if we already have uploaded files in session state
         if 'uploaded_files' not in st.session_state:
-            st.session_state.uploaded_files = []
             # Upload and process the categories file
             files = [
                 upload_to_gemini("data/Classes.txt", mime_type="text/plain"),
@@ -1461,11 +117,29 @@ def initialize_gemini():
             
             st.session_state.uploaded_files = files
 
+        # Load types from configuration
+        with open("data/Classes.txt", 'r', encoding='utf-8') as file:
+            data = yaml.safe_load(file)
+            types = data.get('types', [])
+            types_str = ', '.join(types)
+
         chat_session = model.start_chat(
             history=[
                 {
                     "role": "user",
                     "parts": [
+                        "Please analyze the following responses and classify them based on the categories in the file. "
+                        f"For each response, determine if it is one of these types: {types_str}. "
+                        "Provide the classification in the following format:\n"
+                        "{\n"
+                        "  'response': 'the original response',\n"
+                        "  'classification': {\n"
+                        "    'type': 'the experience type',\n"
+                        "    'category': 'main category',\n"
+                        "    'subcategory': 'subcategory',\n"
+                        "    'explanation': 'brief explanation of the classification'\n"
+                        "  }\n"
+                        "}",
                         st.session_state.uploaded_files[0],
                     ],
                 },
@@ -1527,17 +201,47 @@ def process_responses(file, file_type, column_name=None, separator=None):
         st.error(f"حدث خطأ أثناء معالجة الملف: {str(e)}")
         return []
 
-def get_optimal_batch_size(total_items):
-    """Calculate optimal batch size based on total items."""
-    # For very small datasets
+def estimate_tokens(text):
+    """Estimate the number of tokens in a text using character count."""
+    return len(str(text)) * TOKENS_PER_CHAR_ESTIMATE
+
+def get_optimal_batch_size(total_items, responses=None):
+    """Calculate optimal batch size based on total items and response lengths.
+    
+    Args:
+        total_items: Total number of responses to process
+        responses: List of actual responses (optional)
+    
+    Returns:
+        Optimal batch size that considers both item count and token limits
+    """
+    # For very small datasets, process all at once
     if total_items <= MIN_BATCH_SIZE:
         return total_items
     
-    # Calculate a reasonable batch size (about 1/3 of total)
-    suggested_size = max(MIN_BATCH_SIZE, total_items // 3)
+    # If we have actual responses, use them to calculate average length
+    if responses:
+        # Calculate average tokens per response
+        total_tokens = sum(estimate_tokens(r) for r in responses)
+        avg_tokens_per_response = total_tokens / len(responses)
+        
+        # Calculate how many responses we can fit within token limit
+        tokens_available = MAX_TOKENS_PER_BATCH - PROMPT_TEMPLATE_TOKENS
+        suggested_size = int(tokens_available / avg_tokens_per_response)
+        
+        # Ensure we stay within MIN/MAX bounds
+        batch_size = max(MIN_BATCH_SIZE, min(suggested_size, MAX_BATCH_SIZE))
+        
+        return min(batch_size, total_items)
     
-    # Cap at MAX_BATCH_SIZE
-    return min(suggested_size, MAX_BATCH_SIZE)
+    # Without responses, use a more conservative approach
+    suggested_size = max(MIN_BATCH_SIZE, min(total_items // 4, MAX_BATCH_SIZE))
+    return suggested_size
+
+def get_batch_token_estimate(responses_batch):
+    """Estimate total tokens for a batch of responses."""
+    response_tokens = sum(estimate_tokens(r) for r in responses_batch)
+    return response_tokens + PROMPT_TEMPLATE_TOKENS
 
 def classify_responses_batch(responses_batch):
     """Classify a batch of responses using Gemini."""
@@ -2028,21 +732,60 @@ if st.session_state.preview_data is not None:
                 results = []
                 
                 try:
-                    # Calculate optimal batch size
-                    batch_size = get_optimal_batch_size(len(responses))
+                    # Calculate initial optimal batch size based on responses
+                    batch_size = get_optimal_batch_size(len(responses), responses)
                     total_batches = (len(responses) + batch_size - 1) // batch_size
                     
-                    # Process responses in batches
-                    for i in range(0, len(responses), batch_size):
-                        batch = responses[i:i + batch_size]
-                        classifications = classify_responses_batch(batch)
+                    # Process responses in batches with dynamic size adjustment
+                    i = 0
+                    consecutive_failures = 0
+                    while i < len(responses):
+                        # Get current batch
+                        end_idx = min(i + batch_size, len(responses))
+                        batch = responses[i:end_idx]
                         
-                        for response, classification in zip(batch, classifications):
-                            if classification:
-                                results.append({
-                                    "response": response,
-                                    "classification": classification
-                                })
+                        # Estimate tokens for this batch
+                        estimated_tokens = get_batch_token_estimate(batch)
+                        
+                        # If estimated tokens too high, reduce batch size
+                        if estimated_tokens > MAX_TOKENS_PER_BATCH:
+                            # Reduce batch size by 25%
+                            batch_size = max(MIN_BATCH_SIZE, int(batch_size * 0.75))
+                            continue  # Retry with smaller batch
+                        
+                        try:
+                            classifications = classify_responses_batch(batch)
+                            
+                            # Check if classification was successful
+                            if all(c is not None for c in classifications):
+                                # Success - process results
+                                for response, classification in zip(batch, classifications):
+                                    if classification:
+                                        results.append({
+                                            "response": response,
+                                            "classification": classification
+                                        })
+                                # Reset failure counter and potentially increase batch size
+                                consecutive_failures = 0
+                                if batch_size < MAX_BATCH_SIZE:
+                                    # Increase by 20% if we've had success
+                                    batch_size = min(MAX_BATCH_SIZE, int(batch_size * 1.2))
+                                i += len(batch)  # Move to next batch
+                            else:
+                                # Partial failure - reduce batch size
+                                consecutive_failures += 1
+                                batch_size = max(MIN_BATCH_SIZE, int(batch_size * 0.75))
+                                if consecutive_failures >= 3:
+                                    # If we've failed 3 times, process one at a time
+                                    batch_size = MIN_BATCH_SIZE
+                        except Exception as e:
+                            # Error processing batch - reduce size and retry
+                            consecutive_failures += 1
+                            batch_size = max(MIN_BATCH_SIZE, int(batch_size * 0.75))
+                            if consecutive_failures >= 3:
+                                # If we've failed 3 times, process one at a time
+                                batch_size = MIN_BATCH_SIZE
+                            continue
                     
                     # Clear processing indicator
                     processing_container.empty()
@@ -2057,7 +800,7 @@ if st.session_state.preview_data is not None:
                             تم تصنيف الاستجابات بنجاح!
                         </div>
                     """, unsafe_allow_html=True)
-
+                    
                 except Exception as e:
                     processing_container.empty()
                     st.markdown(f"""

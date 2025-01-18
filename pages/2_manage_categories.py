@@ -7,7 +7,7 @@ import pandas as pd
 st.set_page_config(
     page_title="إدارة التصنيفات",
     page_icon="📑",
-    layout="wide"
+    layout="centered"
 )
 
 # Add custom CSS for RTL support
@@ -455,6 +455,32 @@ st.markdown("""
             background: transparent !important;
             box-shadow: none !important;
         }
+
+        .types-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .type-badge {
+            background: linear-gradient(135deg, #1f77b4, #4a90e2);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9em;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .type-badge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -464,19 +490,22 @@ def load_categories():
         file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "Classes.txt")
         with open(file_path, 'r', encoding='utf-8') as file:
             data = yaml.safe_load(file)
-            return data.get('categories', {})
+            return data.get('categories', {}), data.get('types', [])
     except FileNotFoundError:
-        return {}
+        return {}, []
 
 # Function to save categories
-def save_categories(categories):
+def save_categories(categories, types):
     file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "Classes.txt")
     with open(file_path, 'w', encoding='utf-8') as file:
-        yaml.dump({'categories': categories}, file, allow_unicode=True)
+        yaml.dump({'types': types, 'categories': categories}, file, allow_unicode=True)
 
 # Convert categories to dataframe format
 def categories_to_df(categories):
     return pd.DataFrame({"التصنيف": list(categories.keys())})
+
+def types_to_df(types):
+    return pd.DataFrame({"النوع": types})
 
 def subcategories_to_df(categories, selected_category):
     if selected_category and selected_category in categories:
@@ -484,18 +513,29 @@ def subcategories_to_df(categories, selected_category):
         return pd.DataFrame({"التصنيف الفرعي": subcats})
     return pd.DataFrame({"التصنيف الفرعي": []})
 
-# Load existing categories
-categories = load_categories()
+# Load existing categories and types
+categories, types = load_categories()
 
 # Title
 st.title("إدارة التصنيفات")
 
 # Create tabs
-tab1, tab2 = st.tabs(["عرض التصنيفات", "تعديل التصنيفات"])
+tab1, tab2, tab3 = st.tabs(["عرض التصنيفات", "تعديل التصنيفات", "إدارة الأنواع"])
 
 # View Categories Tab
 with tab1:
     st.markdown('<h2 class="structure-title">هيكل التصنيفات الحالي</h2>', unsafe_allow_html=True)
+    
+    # Display types section
+    st.markdown('<div class="edit-section-header">الأنواع المتاحة</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="types-container">' + 
+        ''.join([f'<span class="type-badge">{t}</span>' for t in types]) + 
+        '</div>',
+        unsafe_allow_html=True
+    )
+    
+    st.markdown('<div class="edit-section-header">التصنيفات</div>', unsafe_allow_html=True)
     
     # Sort categories by size
     sorted_categories = sorted(
@@ -563,7 +603,7 @@ with tab2:
                         new_categories[category_name] = {'subcategories': []}
             
             categories = new_categories
-            save_categories(categories)
+            save_categories(categories, types)
             st.success("✅ تم حفظ التغييرات بنجاح")
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
@@ -595,9 +635,35 @@ with tab2:
                         new_subcategories.append(subcat)
                 
                 categories[selected_category]['subcategories'] = new_subcategories
-                save_categories(categories)
+                save_categories(categories, types)
                 st.success("✅ تم حفظ التغييرات بنجاح")
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
     
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Types Management Tab
+with tab3:
+    st.markdown('<div class="edit-section-header">إدارة أنواع التجارب</div>', unsafe_allow_html=True)
+    
+    types_df = types_to_df(types)
+    edited_types_df = st.data_editor(
+        types_df,
+        num_rows="dynamic",
+        key="types_editor",
+        use_container_width=True
+    )
+    
+    st.markdown('<div class="button-container">', unsafe_allow_html=True)
+    if st.button("حفظ التغييرات في الأنواع"):
+        new_types = []
+        for _, row in edited_types_df.iterrows():
+            type_name = row["النوع"]
+            if type_name and not pd.isna(type_name):
+                new_types.append(type_name)
+        
+        types = new_types
+        save_categories(categories, types)
+        st.success("✅ تم حفظ التغييرات بنجاح")
+        st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
