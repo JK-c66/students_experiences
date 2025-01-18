@@ -982,6 +982,69 @@ st.markdown("""
         white-space: pre-wrap;
         word-wrap: break-word;
     }
+
+    @keyframes pulseBox {
+        0% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(33, 150, 243, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0); }
+    }
+    
+    .important-note {
+        background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
+        padding: 20px;
+        border-radius: 12px;
+        border-right: 4px solid #2196F3;
+        margin: 20px 0;
+        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.1);
+        animation: pulseBox 2s infinite;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .important-note::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, #2196F3, #64B5F6);
+    }
+    
+    .note-icon {
+        font-size: 1.5em;
+        margin-left: 10px;
+        color: #2196F3;
+        vertical-align: middle;
+    }
+    
+    .note-header {
+        font-family: 'Cairo', sans-serif;
+        font-size: 1.3em;
+        font-weight: 700;
+        color: #1565C0;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .note-content {
+        font-family: 'Cairo', sans-serif;
+        font-size: 1.1em;
+        color: #1f1f1f;
+        line-height: 1.6;
+        margin: 0;
+        padding-right: 15px;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .important-note {
+        animation: fadeIn 0.5s ease-out, pulseBox 2s infinite;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1334,9 +1397,77 @@ if st.session_state.previous_file_type != file_type:
 responses = []
 if file_type == "ملف نصي":
     st.markdown("""
-        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-right: 4px solid #2196F3; margin-bottom: 15px;">
-            <p style="margin: 0; font-family: 'Cairo', sans-serif; font-size: 1.1em; color: #1f1f1f;">
-                <strong>ملاحظة:</strong> يجب أن تكون كل استجابة في سطر جديد في الملف النصي
+        <style>
+            @keyframes pulseBox {
+                0% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4); }
+                70% { box-shadow: 0 0 0 10px rgba(33, 150, 243, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0); }
+            }
+            
+            .important-note {
+                background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
+                padding: 20px;
+                border-radius: 12px;
+                border-right: 4px solid #2196F3;
+                margin: 20px 0;
+                box-shadow: 0 4px 15px rgba(33, 150, 243, 0.1);
+                animation: pulseBox 2s infinite;
+                position: relative;
+                overflow: hidden;
+            }
+            
+            .important-note::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 2px;
+                background: linear-gradient(90deg, #2196F3, #64B5F6);
+            }
+            
+            .note-icon {
+                font-size: 1.5em;
+                margin-left: 10px;
+                color: #2196F3;
+                vertical-align: middle;
+            }
+            
+            .note-header {
+                font-family: 'Cairo', sans-serif;
+                font-size: 1.3em;
+                font-weight: 700;
+                color: #1565C0;
+                margin-bottom: 8px;
+                display: flex;
+                align-items: center;
+            }
+            
+            .note-content {
+                font-family: 'Cairo', sans-serif;
+                font-size: 1.1em;
+                color: #1f1f1f;
+                line-height: 1.6;
+                margin: 0;
+                padding-right: 15px;
+            }
+            
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(-10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            
+            .important-note {
+                animation: fadeIn 0.5s ease-out, pulseBox 2s infinite;
+            }
+        </style>
+        <div class="important-note">
+            <div class="note-header">
+                <span class="note-icon">ℹ️</span>
+                <span>تنبيه مهم</span>
+            </div>
+            <p class="note-content">
+                يجب أن تكون كل استجابة في سطر جديد في الملف النصي للمعالجة الصحيحة للبيانات
             </p>
         </div>
     """, unsafe_allow_html=True)
