@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 import io
 from streamlit_extras.switch_page_button import switch_page
+import openpyxl
 
 # Constants
 MIN_BATCH_SIZE = 10
@@ -28,6 +29,7 @@ st.markdown("""
         direction: rtl !important;
         font-family: 'Cairo', sans-serif !important;
         padding: 1em !important;
+        font-size: 16px !important;
     }
     
     /* Text alignment for all elements */
@@ -35,8 +37,141 @@ st.markdown("""
         text-align: right !important;
         direction: rtl !important;
         font-family: 'Cairo', sans-serif !important;
+        font-size: 1.1em !important;
     }
-    
+
+    /* Enhanced RTL for all streamlit elements */
+    .element-container, .stTextInput, .stSelectbox, .stDateInput {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+
+    /* Increase font size for all inputs */
+    .stTextInput input, .stSelectbox select, .stDateInput input {
+        font-size: 1.1em !important;
+        font-family: 'Cairo', sans-serif !important;
+    }
+
+    /* RTL for file uploader */
+    .stFileUploader {
+        direction: rtl !important;
+        text-align: right !important;
+        font-size: 1.1em !important;
+    }
+
+    /* RTL for radio buttons */
+    .stRadio > div {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+
+    /* RTL for dataframe */
+    .dataframe {
+        direction: rtl !important;
+        text-align: right !important;
+        font-size: 1.1em !important;
+    }
+
+    /* Increase font size for buttons */
+    .stButton>button {
+        font-size: 1.2em !important;
+        padding: 1em 1.5em !important;
+    }
+
+    /* Headers with increased font size */
+    h1 {
+        font-size: 2.8em !important;
+    }
+
+    h2 {
+        font-size: 2.3em !important;
+    }
+
+    h3 {
+        font-size: 1.8em !important;
+    }
+
+    /* Experience cards with increased font size */
+    .experience-card {
+        font-size: 1.1em !important;
+    }
+
+    /* Summary section with increased font size */
+    .summary-container {
+        font-size: 1.1em !important;
+    }
+
+    .stat-number {
+        font-size: 2.8em !important;
+    }
+
+    .stat-label {
+        font-size: 1.4em !important;
+    }
+
+    /* Category cards with increased font size */
+    .category-name {
+        font-size: 1.1em !important;
+    }
+
+    .category-count {
+        font-size: 1.8em !important;
+    }
+
+    /* Toast messages with increased font size */
+    .toast {
+        font-size: 1.2em !important;
+        text-align: right !important;
+        direction: rtl !important;
+    }
+
+    /* Preview section with increased font size */
+    .preview-header {
+        font-size: 1.6em !important;
+    }
+
+    .preview-content {
+        font-size: 1.1em !important;
+    }
+
+    /* Processing text with increased font size */
+    .processing-text {
+        font-size: 1.4em !important;
+        text-align: right !important;
+    }
+
+    /* RTL for select boxes */
+    div[data-baseweb="select"] {
+        direction: rtl !important;
+    }
+
+    div[data-baseweb="select"] > div {
+        text-align: right !important;
+    }
+
+    /* RTL for tooltips */
+    .stTooltipIcon {
+        direction: rtl !important;
+    }
+
+    /* RTL for tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        direction: rtl !important;
+    }
+
+    /* RTL for metrics */
+    .stMetric {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+
+    /* RTL for expander */
+    .streamlit-expanderHeader {
+        direction: rtl !important;
+        text-align: right !important;
+        font-size: 1.2em !important;
+    }
+
     /* Button alignment and styling */
     .stButton>button {
         float: right !important;
@@ -618,6 +753,142 @@ st.markdown("""
     .category-card {
         padding: 15px 10px !important;
     }
+
+    /* Radio button and select box labels with larger font */
+    div.row-widget.stRadio > div[role="radiogroup"] > label {
+        font-size: 1.3em !important;
+        padding: 0.8em 1.5em !important;
+    }
+
+    .stSelectbox > label {
+        font-size: 1.5em !important;
+        font-weight: 600 !important;
+        margin-bottom: 1em !important;
+        color: #1f1f1f !important;
+    }
+
+    /* Radio group label */
+    .stRadio > label {
+        font-size: 1.5em !important;
+        font-weight: 600 !important;
+        margin-bottom: 1em !important;
+        color: #1f1f1f !important;
+    }
+
+    /* Processing section styling */
+    .processing-container {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 20px auto !important;
+        width: 100% !important;
+    }
+
+    .spinner {
+        width: 60px !important;
+        height: 60px !important;
+        border: 6px solid #f3f3f3 !important;
+        border-top: 6px solid #2196F3 !important;
+        margin: 30px auto !important;
+    }
+    
+    .processing-text {
+        text-align: center !important;
+        color: #2196F3 !important;
+        font-family: 'Cairo', sans-serif !important;
+        font-size: 1.6em !important;
+        font-weight: 600 !important;
+        margin: 20px auto !important;
+        padding: 10px !important;
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%) !important;
+        border-radius: 10px !important;
+        box-shadow: 0 2px 8px rgba(33, 150, 243, 0.1) !important;
+        width: fit-content !important;
+        display: block !important;
+    }
+
+    /* Preview section styling */
+    .preview-content {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 10px;
+        margin: 10px 0;
+        background: #ffffff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    /* Enhanced text preview styling */
+    .txt-preview {
+        display: block;
+        direction: rtl;
+        position: relative;
+        padding: 0;
+        background: #ffffff;
+        font-family: 'Cairo', sans-serif;
+        line-height: 1.6;
+    }
+
+    .responses-container {
+        padding: 15px 45px 15px 15px;
+        counter-reset: response-counter;
+    }
+
+    .response-item {
+        position: relative;
+        padding: 8px 15px;
+        margin: 5px 0;
+        border-radius: 6px;
+        background: #f8f9fa;
+        transition: all 0.2s ease;
+        border-right: 3px solid #2196F3;
+        counter-increment: response-counter;
+    }
+
+    .response-item::before {
+        content: counter(response-counter);
+        position: absolute;
+        right: -30px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #666;
+        font-size: 0.9em;
+        width: 20px;
+        text-align: left;
+    }
+
+    .response-item:hover {
+        background: #f1f8fe;
+        transform: translateX(-2px);
+        box-shadow: 0 2px 5px rgba(33, 150, 243, 0.1);
+    }
+
+    /* Scrollbar styling for the preview */
+    .txt-preview::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .txt-preview::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .txt-preview::-webkit-scrollbar-thumb {
+        background: #2196F3;
+        border-radius: 4px;
+    }
+
+    .txt-preview::-webkit-scrollbar-thumb:hover {
+        background: #1976D2;
+    }
+
+    /* Ensure text wrapping */
+    .response-item {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -673,7 +944,7 @@ def wait_for_files_active(files):
             file = genai.get_file(name)
             while file.state.name == "PROCESSING":
                 print(".", end="", flush=True)
-                time.sleep(3)
+                time.sleep(2)
                 file = genai.get_file(name)
             if file.state.name != "ACTIVE":
                 raise Exception(f"File {file.name} failed to process")
@@ -1059,22 +1330,18 @@ if st.session_state.preview_data is not None:
     """, unsafe_allow_html=True)
     
     if file_type == "ملف نصي":
-        st.markdown("""
-            <div class="preview-content" style="
-                max-height: 300px;
-                overflow-y: auto;
-                direction: rtl;
-                background: #ffffff;
-                padding: 15px;
-                border-radius: 8px;
-                font-family: 'Cairo', sans-serif;
-                line-height: 1.6;
-                white-space: pre-wrap;
-                border: 1px solid #e0e0e0;
-            ">
-                {}
+        # Create numbered list of responses
+        responses_html = ""
+        for i, response in enumerate(st.session_state.preview_data["الاستجابات"], 1):
+            responses_html += f'<div class="response-item">{response}</div>'
+            
+        st.markdown(f"""
+            <div class="preview-content txt-preview">
+                <div class="responses-container">
+                    {responses_html}
+                </div>
             </div>
-        """.format(st.session_state.preview_data["الاستجابات"].str.cat(sep='\n')), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     else:
         st.dataframe(
             st.session_state.preview_data,
@@ -1098,8 +1365,10 @@ if st.session_state.preview_data is not None:
             else:
                 processing_container = st.empty()
                 processing_container.markdown("""
-                    <div class="spinner"></div>
-                    <div class="processing-text">جاري معالجة الاستجابات...</div>
+                    <div class="processing-container">
+                        <div class="spinner"></div>
+                        <div class="processing-text">جاري معالجة الاستجابات...</div>
+                    </div>
                 """, unsafe_allow_html=True)
                 
                 results = []
@@ -1166,22 +1435,93 @@ if st.session_state.get('results'):
             for r in st.session_state.results
         ])
 
-        # Write all results to one sheet
+        # Add timestamp
+        all_results_df['تاريخ التحليل'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        # Create summary sheet
+        summary_sheet = pd.DataFrame()
+        total_responses = len(all_results_df)
+        positive_count = len(all_results_df[all_results_df['النوع'] == 'إيجابي'])
+        negative_count = len(all_results_df[all_results_df['النوع'] == 'سلبي'])
+        
+        summary_data = {
+            'المقياس': ['إجمالي الاستجابات', 'التجارب الإيجابية', 'التجارب السلبية', 
+                      'نسبة التجارب الإيجابية', 'نسبة التجارب السلبية'],
+            'القيمة': [total_responses, positive_count, negative_count,
+                     f'{(positive_count/total_responses)*100:.1f}%',
+                     f'{(negative_count/total_responses)*100:.1f}%']
+        }
+        summary_df = pd.DataFrame(summary_data)
+        
+        # Category distribution
+        category_dist = all_results_df['التصنيف'].value_counts().reset_index()
+        category_dist.columns = ['التصنيف', 'العدد']
+        category_dist['النسبة'] = (category_dist['العدد'] / total_responses * 100).round(1).astype(str) + '%'
+
+        # Write sheets
+        summary_df.to_excel(writer, sheet_name='ملخص التحليل', index=False, startrow=1)
+        category_dist.to_excel(writer, sheet_name='ملخص التحليل', index=False, startrow=7)
         all_results_df.to_excel(writer, sheet_name='جميع النتائج', index=False)
         
-        # Also write separate sheets for positive and negative
+        # Separate positive and negative experiences
         positive_df = all_results_df[all_results_df['النوع'] == 'إيجابي']
         negative_df = all_results_df[all_results_df['النوع'] == 'سلبي']
-        
         positive_df.to_excel(writer, sheet_name='التجارب الإيجابية', index=False)
         negative_df.to_excel(writer, sheet_name='التجارب السلبية', index=False)
-        
+
+        # Create pivot tables
+        pivot_sheet_name = 'تحليل التصنيفات'
+        category_pivot = pd.pivot_table(
+            all_results_df,
+            values='الاستجابة',
+            index=['التصنيف', 'التصنيف الفرعي'],
+            columns=['النوع'],
+            aggfunc='count',
+            fill_value=0
+        ).reset_index()
+        category_pivot.to_excel(writer, sheet_name=pivot_sheet_name)
+
         # Get workbook and sheets
         workbook = writer.book
+        
+        # Add charts
+        from openpyxl.chart import PieChart, BarChart, Reference
+        
+        # Summary sheet formatting
+        summary_sheet = writer.sheets['ملخص التحليل']
+        summary_sheet.sheet_view.rightToLeft = True
+        
+        # Add title
+        summary_sheet['A1'] = 'ملخص تحليل تجارب الطلاب'
+        summary_sheet['A1'].font = openpyxl.styles.Font(size=14, bold=True)
+        summary_sheet.merge_cells('A1:B1')
+        
+        # Create pie chart for positive/negative distribution
+        pie = PieChart()
+        pie.title = 'توزيع التجارب'
+        labels = Reference(summary_sheet, min_col=1, min_row=3, max_row=4)
+        data = Reference(summary_sheet, min_col=2, min_row=3, max_row=4)
+        pie.add_data(data)
+        pie.set_categories(labels)
+        summary_sheet.add_chart(pie, "D2")
+
+        # Create bar chart for category distribution
+        bar = BarChart()
+        bar.title = 'توزيع التصنيفات'
+        bar.type = "col"
+        bar.style = 10
+        bar.y_axis.title = 'العدد'
+        bar.x_axis.title = 'التصنيف'
+        
+        data = Reference(summary_sheet, min_col=2, min_row=8, max_row=8+len(category_dist))
+        cats = Reference(summary_sheet, min_col=1, min_row=8, max_row=8+len(category_dist))
+        bar.add_data(data)
+        bar.set_categories(cats)
+        summary_sheet.add_chart(bar, "D15")
+
+        # Apply conditional formatting and styling to all sheets
         for sheet_name in writer.sheets:
             worksheet = writer.sheets[sheet_name]
-            
-            # Set RTL direction
             worksheet.sheet_view.rightToLeft = True
             
             # Auto-adjust column widths
@@ -1190,12 +1530,45 @@ if st.session_state.get('results'):
                 column = list(column)
                 for cell in column:
                     try:
+                        # Skip merged cells
+                        if isinstance(cell, openpyxl.cell.cell.MergedCell):
+                            continue
                         if len(str(cell.value)) > max_length:
                             max_length = len(str(cell.value))
                     except:
                         pass
-                adjusted_width = (max_length + 2) * 1.2  # Increased width multiplier for Arabic text
-                worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
+                # Only adjust if we found a valid column letter
+                if column and not isinstance(column[0], openpyxl.cell.cell.MergedCell):
+                    adjusted_width = (max_length + 2) * 1.2
+                    worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
+            
+            # Add header styling
+            for cell in worksheet[1]:
+                cell.font = openpyxl.styles.Font(bold=True, size=12)
+                cell.fill = openpyxl.styles.PatternFill(start_color='E3F2FD', end_color='E3F2FD', fill_type='solid')
+                cell.border = openpyxl.styles.Border(bottom=openpyxl.styles.Side(style='medium'))
+            
+            # Add zebra striping
+            for row in range(2, worksheet.max_row + 1):
+                if row % 2 == 0:
+                    for cell in worksheet[row]:
+                        cell.fill = openpyxl.styles.PatternFill(start_color='F8F9FA', end_color='F8F9FA', fill_type='solid')
+            
+            # Add conditional formatting for positive/negative
+            if 'النوع' in [cell.value for cell in worksheet[1]]:
+                type_col = None
+                for idx, cell in enumerate(worksheet[1], 1):
+                    if cell.value == 'النوع':
+                        type_col = idx
+                        break
+                
+                if type_col:
+                    for row in range(2, worksheet.max_row + 1):
+                        cell = worksheet.cell(row=row, column=type_col)
+                        if cell.value == 'إيجابي':
+                            cell.font = openpyxl.styles.Font(color='4CAF50')
+                        elif cell.value == 'سلبي':
+                            cell.font = openpyxl.styles.Font(color='F44336')
 
     # Reset pointer and get value
     output.seek(0)

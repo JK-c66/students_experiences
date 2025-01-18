@@ -160,6 +160,8 @@ st.markdown("""
         font-family: 'Cairo', sans-serif !important;
         transition: all 0.3s ease;
         position: relative;
+        display: flex !important;
+        flex-direction: column !important;
     }
 
     .experience-card:hover {
@@ -175,12 +177,66 @@ st.markdown("""
         border-right: 5px solid #f44336;
     }
 
+    /* Response text highlight styling */
+    .response-text {
+        margin-bottom: 0.8em !important;
+        line-height: 1.75 !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 0.5em !important;
+        align-items: flex-start !important;
+    }
+
+    .response-text strong {
+        white-space: nowrap !important;
+    }
+
+    .response-highlight-wrapper {
+        display: inline-block !important;
+        padding: 0.2em 0.6em !important;
+        border-radius: 6px !important;
+        line-height: 1.75 !important;
+        flex: 1 !important;
+        min-width: 0 !important; /* Allows text to wrap */
+    }
+
+    .experience-card.positive .response-highlight-wrapper {
+        background-color: rgba(76, 175, 80, 0.1) !important;
+        border-left: 3px solid rgba(76, 175, 80, 0.5) !important;
+    }
+
+    .experience-card.negative .response-highlight-wrapper {
+        background-color: rgba(244, 67, 54, 0.1) !important;
+        border-left: 3px solid rgba(244, 67, 54, 0.5) !important;
+    }
+
+    .experience-card.positive:hover .response-highlight-wrapper {
+        background-color: rgba(76, 175, 80, 0.15) !important;
+    }
+
+    .experience-card.negative:hover .response-highlight-wrapper {
+        background-color: rgba(244, 67, 54, 0.15) !important;
+    }
+
+    /* Content container */
+    .card-content {
+        padding-left: 40px !important;
+        width: 100% !important;
+    }
+
+    .category-text {
+        margin-bottom: 0.5em !important;
+        word-wrap: break-word !important;
+        max-width: calc(100% - 40px) !important; /* Account for info bubble */
+    }
+
     /* Info bubble styling */
     .info-link-container {
         position: absolute !important;
         left: 15px !important;
         top: 15px !important;
         z-index: 10 !important;
+        width: 28px !important; /* Fixed width */
     }
 
     .info-link {
@@ -210,7 +266,7 @@ st.markdown("""
         display: none !important;
         position: absolute !important;
         top: 38px !important;
-        left: -150px !important;  /* Center the bubble relative to icon */
+        left: -150px !important;
         background: linear-gradient(to bottom right, #ffffff, #f8f9fa) !important;
         border: 1px solid rgba(33, 150, 243, 0.1) !important;
         border-radius: 12px !important;
@@ -230,7 +286,7 @@ st.markdown("""
         content: '' !important;
         position: absolute !important;
         top: -8px !important;
-        left: 150px !important;  /* Center the arrow relative to bubble */
+        left: 150px !important;
         width: 0 !important;
         height: 0 !important;
         border-left: 8px solid transparent !important;
@@ -245,7 +301,6 @@ st.markdown("""
         transform: translateY(0) !important;
     }
 
-    /* Keep the bubble visible when hovering over it */
     .info-bubble:hover {
         display: block !important;
         opacity: 1 !important;
@@ -562,14 +617,17 @@ def display_experience(result, experience_type):
         
         st.markdown(f"""
             <div class="experience-card {card_class}">
-                <div class="response-text">
-                    <strong>الاستجابة:</strong> {result.get('response', '')}
-                </div>
-                <div class="category-text">
-                    <strong>التصنيف:</strong> {result.get('classification', {}).get('category', '')}
-                </div>
-                <div class="category-text">
-                    <strong>التصنيف الفرعي:</strong> {result.get('classification', {}).get('subcategory', '')}
+                <div class="card-content">
+                    <div class="response-text">
+                        <strong>الاستجابة:</strong>
+                        <div class="response-highlight-wrapper">{result.get('response', '')}</div>
+                    </div>
+                    <div class="category-text">
+                        <strong>التصنيف:</strong> {result.get('classification', {}).get('category', '')}
+                    </div>
+                    <div class="category-text">
+                        <strong>التصنيف الفرعي:</strong> {result.get('classification', {}).get('subcategory', '')}
+                    </div>
                 </div>
                 <div class="info-link-container">
                     <a href="#" class="info-link">
