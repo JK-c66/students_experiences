@@ -10,11 +10,8 @@ import openpyxl
 import yaml
 
 # Constants
-MIN_BATCH_SIZE = 30  # Minimum to ensure some parallelization
-MAX_BATCH_SIZE = 100  # Maximum for very short responses
-MAX_TOKENS_PER_BATCH = 6000  # Conservative limit for Gemini's context window
-TOKENS_PER_CHAR_ESTIMATE = 0.5  # Rough estimate of tokens per character
-PROMPT_TEMPLATE_TOKENS = 500  # Estimated tokens for the classification prompt template
+MIN_BATCH_SIZE = 50  # Minimum batch size for processing
+MAX_BATCH_SIZE = 80  # Maximum batch size for processing
 
 # Configure Gemini API and page settings
 st.set_page_config(
@@ -23,7 +20,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# Load and apply external CSS
+# Load and apply CSS
 with open('static/css/main.css', encoding='utf-8') as f:
     st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
@@ -95,9 +92,28 @@ def initialize_gemini():
             model_name="gemini-1.5-flash",
             generation_config=generation_config,
             system_instruction=(
-                "according to the categories mentioned, classify the provided text into the most appropriate category, "
-                "subcategory, and type. You must use categories, subcategories, and types from the file only. "
-                "Choose what fits the case the most. The output should be in Arabic."
+                "You are an expert system for classifying student experiences in universities. Follow these steps:\n\n"
+                "1. Content Validation:\n"
+                "   - Check if the text is comprehensible and meaningful\n"
+                "   - Verify if it's related to university/college experiences\n"
+                "   If content is gibberish or completely unrelated, create a new category called 'محتوى غير متعلق' with appropriate subcategory\n\n"
+                "2. Classification Process:\n"
+                "   a) First, try to match with existing categories if there's a good fit (80%+ confidence)\n"
+                "   b) If no good match exists:\n"
+                "      - Create a new appropriate category and subcategory\n"
+                "      - New categories should follow the existing naming style\n"
+                "      - New categories should be logical and reusable\n"
+                "      - Provide detailed explanation for why a new category was created\n\n"
+                "3. Category Creation Rules:\n"
+                "   - New categories must be in Arabic\n"
+                "   - Names should be concise but descriptive\n"
+                "   - Categories should be general enough to be reused\n"
+                "   - Subcategories should   be specific but not unique to one case\n\n"
+                "4. Sentiment Classification:\n"
+                "   - Use existing sentiment types only\n"
+                "   - For unclear or mixed sentiments, use 'محايد'\n"
+                "   - For irrelevant content, default to 'محايد'\n\n"
+                "Always provide detailed explanation for your classification decisions, especially for new categories."
             )
         )
 
@@ -201,47 +217,14 @@ def process_responses(file, file_type, column_name=None, separator=None):
         st.error(f"حدث خطأ أثناء معالجة الملف: {str(e)}")
         return []
 
-def estimate_tokens(text):
-    """Estimate the number of tokens in a text using character count."""
-    return len(str(text)) * TOKENS_PER_CHAR_ESTIMATE
-
 def get_optimal_batch_size(total_items, responses=None):
-    """Calculate optimal batch size based on total items and response lengths.
-    
-    Args:
-        total_items: Total number of responses to process
-        responses: List of actual responses (optional)
-    
-    Returns:
-        Optimal batch size that considers both item count and token limits
-    """
+    """Calculate optimal batch size based on total items."""
     # For very small datasets, process all at once
     if total_items <= MIN_BATCH_SIZE:
         return total_items
     
-    # If we have actual responses, use them to calculate average length
-    if responses:
-        # Calculate average tokens per response
-        total_tokens = sum(estimate_tokens(r) for r in responses)
-        avg_tokens_per_response = total_tokens / len(responses)
-        
-        # Calculate how many responses we can fit within token limit
-        tokens_available = MAX_TOKENS_PER_BATCH - PROMPT_TEMPLATE_TOKENS
-        suggested_size = int(tokens_available / avg_tokens_per_response)
-        
-        # Ensure we stay within MIN/MAX bounds
-        batch_size = max(MIN_BATCH_SIZE, min(suggested_size, MAX_BATCH_SIZE))
-        
-        return min(batch_size, total_items)
-    
-    # Without responses, use a more conservative approach
-    suggested_size = max(MIN_BATCH_SIZE, min(total_items // 4, MAX_BATCH_SIZE))
-    return suggested_size
-
-def get_batch_token_estimate(responses_batch):
-    """Estimate total tokens for a batch of responses."""
-    response_tokens = sum(estimate_tokens(r) for r in responses_batch)
-    return response_tokens + PROMPT_TEMPLATE_TOKENS
+    # Use minimum batch size for consistency
+    return MIN_BATCH_SIZE
 
 def classify_responses_batch(responses_batch):
     """Classify a batch of responses using Gemini."""
@@ -732,60 +715,42 @@ if st.session_state.preview_data is not None:
                 results = []
                 
                 try:
-                    # Calculate initial optimal batch size based on responses
-                    batch_size = get_optimal_batch_size(len(responses), responses)
+                    # Use a fixed batch size
+                    batch_size = MIN_BATCH_SIZE
                     total_batches = (len(responses) + batch_size - 1) // batch_size
                     
-                    # Process responses in batches with dynamic size adjustment
+                    # Process responses in batches
                     i = 0
-                    consecutive_failures = 0
                     while i < len(responses):
                         # Get current batch
                         end_idx = min(i + batch_size, len(responses))
                         batch = responses[i:end_idx]
                         
-                        # Estimate tokens for this batch
-                        estimated_tokens = get_batch_token_estimate(batch)
-                        
-                        # If estimated tokens too high, reduce batch size
-                        if estimated_tokens > MAX_TOKENS_PER_BATCH:
-                            # Reduce batch size by 25%
-                            batch_size = max(MIN_BATCH_SIZE, int(batch_size * 0.75))
-                            continue  # Retry with smaller batch
-                        
                         try:
                             classifications = classify_responses_batch(batch)
                             
-                            # Check if classification was successful
-                            if all(c is not None for c in classifications):
-                                # Success - process results
-                                for response, classification in zip(batch, classifications):
+                            # Process results
+                            for response, classification in zip(batch, classifications):
+                                if classification:
+                                    results.append({
+                                        "response": response,
+                                        "classification": classification
+                                    })
+                            i += len(batch)  # Move to next batch
+                            
+                        except Exception as e:
+                            # If batch fails, try processing one by one
+                            for response in batch:
+                                try:
+                                    classification = classify_responses_batch([response])[0]
                                     if classification:
                                         results.append({
                                             "response": response,
                                             "classification": classification
                                         })
-                                # Reset failure counter and potentially increase batch size
-                                consecutive_failures = 0
-                                if batch_size < MAX_BATCH_SIZE:
-                                    # Increase by 20% if we've had success
-                                    batch_size = min(MAX_BATCH_SIZE, int(batch_size * 1.2))
-                                i += len(batch)  # Move to next batch
-                            else:
-                                # Partial failure - reduce batch size
-                                consecutive_failures += 1
-                                batch_size = max(MIN_BATCH_SIZE, int(batch_size * 0.75))
-                                if consecutive_failures >= 3:
-                                    # If we've failed 3 times, process one at a time
-                                    batch_size = MIN_BATCH_SIZE
-                        except Exception as e:
-                            # Error processing batch - reduce size and retry
-                            consecutive_failures += 1
-                            batch_size = max(MIN_BATCH_SIZE, int(batch_size * 0.75))
-                            if consecutive_failures >= 3:
-                                # If we've failed 3 times, process one at a time
-                                batch_size = MIN_BATCH_SIZE
-                            continue
+                                except Exception:
+                                    continue
+                            i += len(batch)
                     
                     # Clear processing indicator
                     processing_container.empty()
