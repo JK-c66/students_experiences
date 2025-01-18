@@ -108,7 +108,7 @@ def initialize_gemini():
                 "    }\n"
                 "]\n"
                 "Rules:"
-                "1. Use 'خطأ' for any bad or not ralted response"
+                "1. Use 'خطأ' in all type, category, subcategory for any bad or not ralted response"
                 "2. All your responses MUST be in Arabic"
                 "3. the response must be a valid json array"
             )

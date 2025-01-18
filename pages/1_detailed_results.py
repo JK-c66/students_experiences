@@ -18,9 +18,14 @@ def load_types():
         file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "Classes.txt")
         with open(file_path, 'r', encoding='utf-8') as file:
             data = yaml.safe_load(file)
-            return data.get('types', [])
+            types = data.get('types', [])
+            # Ensure "خطأ" is included in types
+            if "خطأ" not in types:
+                types.append("خطأ")
+            return types
     except FileNotFoundError:
-        return []
+        # Default types including "خطأ"
+        return ['إيجابي', 'سلبي', 'محايد', 'خطأ']
 
 # Load types configuration
 TYPES = load_types()
@@ -29,7 +34,8 @@ TYPES = load_types()
 TYPE_COLORS = {
     'إيجابي': '#4CAF50',
     'سلبي': '#f44336',
-    'محايد': '#9E9E9E'
+    'محايد': '#9E9E9E',
+    'خطأ': '#795548'  # Brown color for error/invalid responses
 }
 
 def get_type_color(type_name):
@@ -210,6 +216,10 @@ st.markdown("""
         border-right: 5px solid #f44336;
     }
 
+    .experience-card.error {
+        border-right: 5px solid #795548;
+    }
+
     /* Response text highlight styling */
     .response-text {
         margin-bottom: 0.8em !important;
@@ -243,12 +253,21 @@ st.markdown("""
         border-left: 3px solid rgba(244, 67, 54, 0.5) !important;
     }
 
+    .experience-card.error .response-highlight-wrapper {
+        background-color: rgba(121, 85, 72, 0.1) !important;
+        border-left: 3px solid rgba(121, 85, 72, 0.5) !important;
+    }
+
     .experience-card.positive:hover .response-highlight-wrapper {
         background-color: rgba(76, 175, 80, 0.15) !important;
     }
 
     .experience-card.negative:hover .response-highlight-wrapper {
         background-color: rgba(244, 67, 54, 0.15) !important;
+    }
+
+    .experience-card.error:hover .response-highlight-wrapper {
+        background-color: rgba(121, 85, 72, 0.15) !important;
     }
 
     /* Content container */
@@ -649,21 +668,30 @@ def display_experience(result, experience_type):
     """Enhanced display function for experiences"""
     try:
         type_color = get_type_color(experience_type)
+        card_class = "error" if experience_type == "خطأ" else ("positive" if experience_type == "إيجابي" else "negative")
+        
+        # For invalid responses, all classification fields should show "خطأ"
+        if experience_type == "خطأ":
+            category = "خطأ"
+            subcategory = "خطأ"
+        else:
+            category = result.get('classification', {}).get('category', '')
+            subcategory = result.get('classification', {}).get('subcategory', '')
         
         st.markdown(f"""
-            <div class="experience-card" style="border-right: 5px solid {type_color}">
+            <div class="experience-card {card_class}">
                 <div class="card-content">
                     <div class="response-text">
                         <strong>الاستجابة:</strong>
-                        <div class="response-highlight-wrapper" style="background-color: {type_color}1A; border-left: 3px solid {type_color}80">
+                        <div class="response-highlight-wrapper">
                             {result.get('response', '')}
                         </div>
                     </div>
                     <div class="category-text">
-                        <strong>التصنيف:</strong> {result.get('classification', {}).get('category', '')}
+                        <strong>التصنيف:</strong> {category}
                     </div>
                     <div class="category-text">
-                        <strong>التصنيف الفرعي:</strong> {result.get('classification', {}).get('subcategory', '')}
+                        <strong>التصنيف الفرعي:</strong> {subcategory}
                     </div>
                 </div>
                 <div class="info-link-container">
@@ -685,12 +713,17 @@ def get_unique_categories(results):
     categories = set()
     subcategories = set()
     for r in results:
-        cat = r.get('classification', {}).get('category', '')
-        subcat = r.get('classification', {}).get('subcategory', '')
-        if cat:
-            categories.add(cat)
-        if subcat:
-            subcategories.add(subcat)
+        # If type is "خطأ", use "خطأ" for both category and subcategory
+        if r.get('classification', {}).get('type') == "خطأ":
+            categories.add("خطأ")
+            subcategories.add("خطأ")
+        else:
+            cat = r.get('classification', {}).get('category', '')
+            subcat = r.get('classification', {}).get('subcategory', '')
+            if cat:
+                categories.add(cat)
+            if subcat:
+                subcategories.add(subcat)
     return sorted(list(categories)), sorted(list(subcategories))
 
 def filter_results(results, category=None, subcategory=None, search_text=None):
@@ -698,10 +731,16 @@ def filter_results(results, category=None, subcategory=None, search_text=None):
     filtered = results.copy()
     
     if category:
-        filtered = [r for r in filtered if r.get('classification', {}).get('category') == category]
+        filtered = [r for r in filtered if (
+            (r.get('classification', {}).get('type') == "خطأ" and category == "خطأ") or
+            (r.get('classification', {}).get('category') == category)
+        )]
     
     if subcategory:
-        filtered = [r for r in filtered if r.get('classification', {}).get('subcategory') == subcategory]
+        filtered = [r for r in filtered if (
+            (r.get('classification', {}).get('type') == "خطأ" and subcategory == "خطأ") or
+            (r.get('classification', {}).get('subcategory') == subcategory)
+        )]
     
     if search_text:
         search_text = search_text.lower()
