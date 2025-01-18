@@ -1443,25 +1443,30 @@ def initialize_gemini():
             )
         )
 
-        # Upload and process the categories file
-        files = [
-            upload_to_gemini("data/Classes.txt", mime_type="text/plain"),
-        ]
+        # Check if we already have uploaded files in session state
+        if 'uploaded_files' not in st.session_state:
+            st.session_state.uploaded_files = []
+            # Upload and process the categories file
+            files = [
+                upload_to_gemini("data/Classes.txt", mime_type="text/plain"),
+            ]
 
-        # Check if file upload was successful
-        if None in files:
-            raise Exception("Failed to upload required files")
+            # Check if file upload was successful
+            if None in files:
+                raise Exception("Failed to upload required files")
 
-        # Wait for files to be processed
-        if not wait_for_files_active(files):
-            raise Exception("File processing failed")
+            # Wait for files to be processed
+            if not wait_for_files_active(files):
+                raise Exception("File processing failed")
+            
+            st.session_state.uploaded_files = files
 
         chat_session = model.start_chat(
             history=[
                 {
                     "role": "user",
                     "parts": [
-                        files[0],
+                        st.session_state.uploaded_files[0],
                     ],
                 },
             ]
