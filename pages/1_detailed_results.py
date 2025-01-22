@@ -5,6 +5,8 @@ import plotly.graph_objects as go
 import yaml
 import os
 import google.generativeai as genai
+import io
+from openpyxl.styles import Font, PatternFill, Alignment
 
 # Page config
 st.set_page_config(
@@ -1033,25 +1035,93 @@ if 'results' in st.session_state and st.session_state.results:
             
             # Add suggestions button for negative experiences
             if type_name == 'سلبي' and experiences:
-                if st.button("الحصول على مقترحات للتحسين", key="get_suggestions", use_container_width=True):
-                    # Initialize suggestion model if not already done
-                    if 'suggestion_model' not in st.session_state:
-                        st.session_state.suggestion_model = initialize_suggestion_model()
-                    
-                    if st.session_state.suggestion_model:
-                        with st.spinner('جاري توليد المقترحات...'):
-                            # Get responses
-                            negative_responses = [exp.get('response', '') for exp in experiences]
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("الحصول على مقترحات للتحسين", key="get_suggestions", use_container_width=True):
+                        # Initialize suggestion model if not already done
+                        if 'suggestion_model' not in st.session_state:
+                            st.session_state.suggestion_model = initialize_suggestion_model()
+                        
+                        if st.session_state.suggestion_model:
+                            with st.spinner('جاري توليد المقترحات...'):
+                                # Get responses
+                                negative_responses = [exp.get('response', '') for exp in experiences]
+                                
+                                # Get suggestions
+                                suggestions_list = get_suggestions_batch(st.session_state.suggestion_model, negative_responses)
+                                
+                                # Store suggestions in session state
+                                st.session_state.suggestions = dict(zip(negative_responses, suggestions_list))
+                                
+                                st.success('تم توليد المقترحات بنجاح!')
+                        else:
+                            st.error('فشل في تهيئة نموذج المقترحات')
+                
+                # Add download button if we have suggestions
+                with col2:
+                    if 'suggestions' in st.session_state and st.session_state.suggestions:
+                        # Create Excel file in memory
+                        output = io.BytesIO()
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            # Create DataFrame for negative experiences with suggestions
+                            negative_data = []
+                            for exp in experiences:
+                                response = exp.get('response', '')
+                                suggestion = st.session_state.suggestions.get(response, '')
+                                negative_data.append({
+                                    'الاستجابة': response,
+                                    'التصنيف': exp.get('classification', {}).get('category', ''),
+                                    'التصنيف الفرعي': exp.get('classification', {}).get('subcategory', ''),
+                                    'التفسير': exp.get('classification', {}).get('explanation', ''),
+                                    'المقترح': suggestion.replace('المقترح:', '').strip() if suggestion else ''
+                                })
                             
-                            # Get suggestions
-                            suggestions_list = get_suggestions_batch(st.session_state.suggestion_model, negative_responses)
+                            df_negative = pd.DataFrame(negative_data)
                             
-                            # Store suggestions in session state
-                            st.session_state.suggestions = dict(zip(negative_responses, suggestions_list))
+                            # Write to Excel with styling
+                            df_negative.to_excel(writer, sheet_name='التجارب السلبية والمقترحات', index=False)
                             
-                            st.success('تم توليد المقترحات بنجاح!')
-                    else:
-                        st.error('فشل في تهيئة نموذج المقترحات')
+                            # Get the worksheet
+                            worksheet = writer.sheets['التجارب السلبية والمقترحات']
+                            
+                            # Set RTL
+                            worksheet.sheet_view.rightToLeft = True
+                            
+                            # Style headers
+                            for cell in worksheet[1]:
+                                cell.font = Font(bold=True, color="FFFFFF")
+                                cell.fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+                                cell.alignment = Alignment(horizontal='right', vertical='center', wrap_text=True)
+                            
+                            # Auto-fit columns
+                            for column in worksheet.columns:
+                                max_length = 0
+                                column = list(column)
+                                for cell in column:
+                                    try:
+                                        if len(str(cell.value)) > max_length:
+                                            max_length = len(str(cell.value))
+                                    except:
+                                        pass
+                                adjusted_width = min(max_length + 2, 50)
+                                worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
+                            
+                            # Apply text wrapping and alignment to all cells
+                            for row in worksheet.iter_rows(min_row=2):
+                                for cell in row:
+                                    cell.alignment = Alignment(horizontal='right', vertical='center', wrap_text=True)
+                        
+                        # Reset pointer and get value
+                        output.seek(0)
+                        
+                        # Add download button
+                        st.download_button(
+                            "تحميل التجارب السلبية مع المقترحات",
+                            output,
+                            "negative_experiences_with_suggestions.xlsx",
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
             
             for exp in experiences:
                 display_experience(exp, type_name)
