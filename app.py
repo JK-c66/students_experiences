@@ -1029,26 +1029,48 @@ if st.session_state.get('results'):
         st.markdown("""
             <style>
             .neutral-stat .stat-number {
-                background: linear-gradient(45deg, #9E9E9E, #BDBDBD);
+                background: linear-gradient(45deg, #607D8B, #90A4AE);
                 -webkit-background-clip: text;
                 -webkit-text-fill-color: transparent;
+                font-weight: 600;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
             }
             
             .neutral-stat .stat-label::after {
-                background: linear-gradient(90deg, #9E9E9E, #BDBDBD);
+                background: linear-gradient(90deg, #607D8B, #90A4AE);
+                height: 3px;
+                border-radius: 2px;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            }
+            
+            .neutral-stat {
+                position: relative;
+                transition: transform 0.3s ease;
+            }
+            
+            .neutral-stat:hover {
+                transform: translateY(-2px);
             }
             
             .neutral-stat::after {
-                content: '📊';
+                content: '🔘';
+                font-size: 1.2em;
+                opacity: 0.9;
+                transition: transform 0.3s ease;
+            }
+            
+            .neutral-stat:hover::after {
+                transform: scale(1.1);
             }
             
             .neutral-pct {
-                color: #9E9E9E;
+                color: #546E7A;
                 padding: 0.2rem 0.5rem;
                 border-radius: 12px;
                 transition: all 0.3s ease;
-                background: rgba(255, 255, 255, 0.5);
-                border: 1px solid rgba(158, 158, 158, 0.2);
+                background: linear-gradient(135deg, rgba(144, 164, 174, 0.1), rgba(96, 125, 139, 0.05));
+                border: 1px solid rgba(96, 125, 139, 0.2);
+                font-weight: 500;
             }
             
             .summary-stats {

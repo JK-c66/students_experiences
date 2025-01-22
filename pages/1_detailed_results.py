@@ -665,11 +665,13 @@ def create_charts():
             categories = []
             positive_counts = []
             negative_counts = []
+            neutral_counts = []
             
             for cat, stats in category_sentiment.items():
                 categories.append(cat)
                 positive_counts.append(stats['إيجابي'])
                 negative_counts.append(stats['سلبي'])
+                neutral_counts.append(stats['محايد'])
             
             # Create figure
             fig_sentiment = go.Figure()
@@ -681,10 +683,24 @@ def create_charts():
                 x=positive_counts,
                 orientation='h',
                 marker_color='#4CAF50',
-                text=[f"{count} ({(count/(count + category_sentiment[cat]['سلبي'])*100):.1f}%)" if category_sentiment[cat]['سلبي'] > 0 else f"{count} (100%)" for count, cat in zip(positive_counts, categories)],
+                text=[f"{count} ({(count/(count + category_sentiment[cat]['سلبي'] + category_sentiment[cat]['محايد'])*100):.1f}%)" if (category_sentiment[cat]['سلبي'] + category_sentiment[cat]['محايد']) > 0 else f"{count} (100%)" for count, cat in zip(positive_counts, categories)],
                 textposition='auto',
                 hovertemplate="<b>%{y}</b><br>" +
                             "تجارب إيجابية: %{x}<br>" +
+                            "<extra></extra>"
+            ))
+            
+            # Add neutral bars
+            fig_sentiment.add_trace(go.Bar(
+                name='تجارب محايدة',
+                y=categories,
+                x=neutral_counts,
+                orientation='h',
+                marker_color='#9E9E9E',
+                text=[f"{count} ({(count/(count + category_sentiment[cat]['إيجابي'] + category_sentiment[cat]['سلبي'])*100):.1f}%)" if (category_sentiment[cat]['إيجابي'] + category_sentiment[cat]['سلبي']) > 0 else f"{count} (100%)" for count, cat in zip(neutral_counts, categories)],
+                textposition='auto',
+                hovertemplate="<b>%{y}</b><br>" +
+                            "تجارب محايدة: %{x}<br>" +
                             "<extra></extra>"
             ))
             
@@ -695,7 +711,7 @@ def create_charts():
                 x=negative_counts,
                 orientation='h',
                 marker_color='#f44336',
-                text=[f"{count} ({(count/(count + category_sentiment[cat]['إيجابي'])*100):.1f}%)" if category_sentiment[cat]['إيجابي'] > 0 else f"{count} (100%)" for count, cat in zip(negative_counts, categories)],
+                text=[f"{count} ({(count/(count + category_sentiment[cat]['إيجابي'] + category_sentiment[cat]['محايد'])*100):.1f}%)" if (category_sentiment[cat]['إيجابي'] + category_sentiment[cat]['محايد']) > 0 else f"{count} (100%)" for count, cat in zip(negative_counts, categories)],
                 textposition='auto',
                 hovertemplate="<b>%{y}</b><br>" +
                             "تجارب سلبية: %{x}<br>" +
