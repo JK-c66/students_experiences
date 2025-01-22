@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import yaml
 import os
+import google.generativeai as genai
 
 # Page config
 st.set_page_config(
@@ -284,7 +285,7 @@ st.markdown("""
         position: absolute !important;
         left: 15px !important;
         top: 15px !important;
-        z-index: 10 !important;
+        z-index: 100 !important;
         width: 28px !important; /* Fixed width */
     }
 
@@ -382,6 +383,44 @@ st.markdown("""
         text-align: right !important;
         direction: rtl !important;
         font-family: 'Cairo', sans-serif !important;
+    }
+
+    /* Suggestion styling */
+    .suggestion-wrapper {
+        margin: 0.8em 0;
+        padding: 0.8em 1em;
+        background: rgba(244, 67, 54, 0.05);
+        border-right: 3px solid rgba(244, 67, 54, 0.5);
+        border-radius: 6px;
+        font-size: 0.95em;
+        line-height: 1.5;
+        color: #d32f2f;
+    }
+    
+    .suggestion-text {
+        font-family: 'Cairo', sans-serif;
+    }
+    
+    /* Get Suggestions Button */
+    .get-suggestions-button {
+        background: linear-gradient(135deg, #f44336, #d32f2f);
+        color: white;
+        padding: 0.8em 1.5em;
+        border-radius: 8px;
+        border: none;
+        font-family: 'Cairo', sans-serif;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin: 1em 0;
+        text-align: center;
+        width: 100%;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .get-suggestions-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -661,11 +700,184 @@ def create_charts():
             
             st.plotly_chart(fig_sentiment, use_container_width=True)
 
+def initialize_suggestion_model():
+    """Initialize a separate Gemini model for suggestions."""
+    try:
+        api_key = st.secrets["GEMINI_API_KEY"]
+        if not api_key:
+            st.error("API key not found in secrets.")
+            return None
+
+        genai.configure(api_key=api_key)
+
+        generation_config = {
+            "temperature": 0.7,
+            "top_p": 0.95,
+            "top_k": 40,
+            "max_output_tokens": 8192,
+        }
+
+        model = genai.GenerativeModel(
+            model_name="gemini-pro",
+            generation_config=generation_config,
+        )
+
+        return model
+    except Exception as e:
+        st.error(f"Failed to initialize suggestion model: {e}")
+        return None
+
+def get_suggestions_batch(model, responses, batch_size=10):
+    """Get suggestions for a batch of negative responses."""
+    suggestions = []
+    
+    for i in range(0, len(responses), batch_size):
+        batch = responses[i:min(i + batch_size, len(responses))]
+        prompt = "For each of these negative student experiences, provide a brief, actionable suggestion for improvement (1-2 sentences max). Format each suggestion to start with 'المقترح: '. Here are the experiences:\n\n"
+        
+        for response in batch:
+            prompt += f"- {response}\n"
+        
+        try:
+            response = model.generate_content(prompt)
+            suggestions_text = response.text.split('\n')
+            
+            # Clean up and match suggestions with responses
+            clean_suggestions = []
+            for suggestion in suggestions_text:
+                if suggestion.strip() and 'المقترح:' in suggestion:
+                    clean_suggestions.append(suggestion.strip())
+            
+            # Pad with empty suggestions if needed
+            while len(clean_suggestions) < len(batch):
+                clean_suggestions.append("المقترح: لا يوجد مقترح متاح.")
+            
+            suggestions.extend(clean_suggestions[:len(batch)])
+            
+        except Exception as e:
+            st.error(f"Error getting suggestions for batch: {str(e)}")
+            suggestions.extend(["المقترح: لا يوجد مقترح متاح."] * len(batch))
+    
+    return suggestions
+
+# Add CSS for suggestions and cards at the start
+st.markdown("""
+<style>
+    /* Experience card base styling */
+    .experience-card {
+        position: relative !important;
+        padding: 1.5em !important;
+        padding-left: 60px !important;
+        margin-bottom: 1em !important;
+        background: #ffffff !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+    }
+    
+    .card-content {
+        position: relative !important;
+        z-index: 1 !important;
+    }
+    
+    /* Category text styling */
+    .category-text {
+        margin: 0.5em 0 !important;
+        font-family: 'Cairo', sans-serif !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.5em !important;
+        line-height: 1.5 !important;
+    }
+    
+    .category-text strong {
+        font-weight: 600 !important;
+        color: #333 !important;
+        white-space: nowrap !important;
+    }
+    
+    /* Info link and bubble styling */
+    .info-link-container {
+        position: absolute !important;
+        left: 15px !important;
+        top: 15px !important;
+        z-index: 100 !important;
+    }
+    
+    .info-link {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 28px !important;
+        height: 28px !important;
+        background: linear-gradient(135deg, #2196F3, #1976D2) !important;
+        color: white !important;
+        border-radius: 50% !important;
+        text-decoration: none !important;
+        font-weight: bold !important;
+        font-size: 14px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .info-bubble {
+        display: none !important;
+        position: absolute !important;
+        left: 40px !important;
+        top: -5px !important;
+        width: 250px !important;
+        background: white !important;
+        border: 1px solid rgba(0,0,0,0.1) !important;
+        border-radius: 8px !important;
+        padding: 12px !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+    }
+    
+    .info-link:hover + .info-bubble,
+    .info-bubble:hover {
+        display: block !important;
+    }
+    
+    /* Response text styling */
+    .response-text {
+        margin-bottom: 0.8em !important;
+    }
+    
+    .response-highlight-wrapper {
+        margin-top: 0.3em !important;
+        padding: 0.5em !important;
+        background: rgba(0,0,0,0.02) !important;
+        border-radius: 4px !important;
+    }
+    
+    /* Suggestion styling */
+    .suggestion-wrapper {
+        margin: 0.8em 0 !important;
+        padding: 0.8em 1em !important;
+        background: rgba(244, 67, 54, 0.05) !important;
+        border-right: 3px solid rgba(244, 67, 54, 0.5) !important;
+        border-radius: 6px !important;
+        font-size: 0.95em !important;
+        line-height: 1.5 !important;
+        color: #d32f2f !important;
+    }
+    
+    .suggestion-text {
+        font-family: 'Cairo', sans-serif !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 def display_experience(result, experience_type):
-    """Enhanced display function for experiences"""
+    """Enhanced display function for experiences with suggestions"""
     try:
         type_color = get_type_color(experience_type)
         card_class = "error" if experience_type == "خطأ" else ("positive" if experience_type == "إيجابي" else "negative")
+        
+        # Get suggestion if it exists and this is a negative experience
+        suggestion = ""
+        if experience_type == "سلبي" and 'suggestions' in st.session_state:
+            response_text = result.get('response', '')
+            suggestion = st.session_state.suggestions.get(response_text, '')
         
         # For invalid responses, all classification fields should show "خطأ"
         if experience_type == "خطأ":
@@ -675,33 +887,30 @@ def display_experience(result, experience_type):
             category = result.get('classification', {}).get('category', '')
             subcategory = result.get('classification', {}).get('subcategory', '')
         
-        st.markdown(f"""
+        # Only include suggestion HTML if we have a suggestion
+        suggestion_html = f"""<div class="suggestion-wrapper"><div class="suggestion-text">{suggestion}</div></div>""" if suggestion else ""
+        
+        html_content = f"""
             <div class="experience-card {card_class}">
+                <div class="info-link-container">
+                    <a href="#" class="info-link"><span class="info-icon">i</span></a>
+                    <div class="info-bubble"><strong>التفسير:</strong><br>{result.get('classification', {}).get('explanation', 'لا يوجد تفسير')}</div>
+                </div>
                 <div class="card-content">
                     <div class="response-text">
                         <strong>الاستجابة:</strong>
-                        <div class="response-highlight-wrapper">
-                            {result.get('response', '')}
-                        </div>
+                        <div class="response-highlight-wrapper">{result.get('response', '')}</div>
                     </div>
-                    <div class="category-text">
-                        <strong>التصنيف:</strong> {category}
-                    </div>
-                    <div class="category-text">
-                        <strong>التصنيف الفرعي:</strong> {subcategory}
-                    </div>
+                    {suggestion_html}
+                    <div class="category-text"><strong>التصنيف:</strong>{category}</div>
+                    <div class="category-text"><strong>التصنيف الفرعي:</strong>{subcategory}</div>
                 </div>
-                <div class="info-link-container">
-                    <a href="#" class="info-link">
-                        <span class="info-icon">i</span>
-                    </a>
-                    <div class="info-bubble">
-                        <strong>التفسير:</strong><br>
-                        {result.get('classification', {}).get('explanation', 'لا يوجد تفسير')}
-                    </div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+            </div>"""
+        
+        # Remove any extra whitespace and newlines
+        html_content = ' '.join(html_content.split())
+        st.markdown(html_content, unsafe_allow_html=True)
+        
     except Exception as e:
         st.error(f"خطأ في عرض التجربة: {str(e)}")
 
@@ -821,6 +1030,29 @@ if 'results' in st.session_state and st.session_state.results:
                 f'<h3 style="text-align: right;">تجارب {type_name} <span class="number-badge" style="background: linear-gradient(135deg, {type_color}, {type_color}CC)">{len(experiences)}</span></h3>',
                 unsafe_allow_html=True
             )
+            
+            # Add suggestions button for negative experiences
+            if type_name == 'سلبي' and experiences:
+                if st.button("الحصول على مقترحات للتحسين", key="get_suggestions", use_container_width=True):
+                    # Initialize suggestion model if not already done
+                    if 'suggestion_model' not in st.session_state:
+                        st.session_state.suggestion_model = initialize_suggestion_model()
+                    
+                    if st.session_state.suggestion_model:
+                        with st.spinner('جاري توليد المقترحات...'):
+                            # Get responses
+                            negative_responses = [exp.get('response', '') for exp in experiences]
+                            
+                            # Get suggestions
+                            suggestions_list = get_suggestions_batch(st.session_state.suggestion_model, negative_responses)
+                            
+                            # Store suggestions in session state
+                            st.session_state.suggestions = dict(zip(negative_responses, suggestions_list))
+                            
+                            st.success('تم توليد المقترحات بنجاح!')
+                    else:
+                        st.error('فشل في تهيئة نموذج المقترحات')
+            
             for exp in experiences:
                 display_experience(exp, type_name)
 else:
