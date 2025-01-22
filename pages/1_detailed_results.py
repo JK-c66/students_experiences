@@ -389,18 +389,42 @@ st.markdown("""
 
     /* Suggestion styling */
     .suggestion-wrapper {
-        margin: 0.8em 0;
-        padding: 0.8em 1em;
-        background: rgba(244, 67, 54, 0.05);
-        border-right: 3px solid rgba(244, 67, 54, 0.5);
-        border-radius: 6px;
-        font-size: 0.95em;
-        line-height: 1.5;
-        color: #d32f2f;
+        margin: 1em 0 !important;
+        padding: 1em !important;
+        background: linear-gradient(to left, rgba(244, 67, 54, 0.05), rgba(244, 67, 54, 0.02)) !important;
+        border-right: 3px solid rgba(244, 67, 54, 0.5) !important;
+        border-radius: 8px !important;
+        font-size: 0.95em !important;
+        line-height: 1.6 !important;
+        color: #d32f2f !important;
+        position: relative !important;
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 0.8em !important;
+    }
+    
+    .suggestion-icon {
+        font-size: 1.2em !important;
+        color: #d32f2f !important;
+        opacity: 0.8 !important;
     }
     
     .suggestion-text {
-        font-family: 'Cairo', sans-serif;
+        font-family: 'Cairo', sans-serif !important;
+        flex: 1 !important;
+    }
+    
+    .suggestion-label {
+        display: block !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.3em !important;
+        color: #d32f2f !important;
+        font-size: 0.9em !important;
+    }
+    
+    .suggestion-content {
+        color: #333 !important;
+        line-height: 1.6 !important;
     }
     
     /* Get Suggestions Button */
@@ -735,7 +759,7 @@ def get_suggestions_batch(model, responses, batch_size=10):
     
     for i in range(0, len(responses), batch_size):
         batch = responses[i:min(i + batch_size, len(responses))]
-        prompt = "For each of these negative student experiences, provide a brief, actionable suggestion for improvement (1-2 sentences max). Format each suggestion to start with 'المقترح: '. Here are the experiences:\n\n"
+        prompt = "For each of these negative student experiences, provide a brief, actionable suggestion for improvement (1-2 sentences max). Format each suggestion to start with 'المقترح: ' (without any asterisks, dashes or bullet points). Here are the experiences:\n\n"
         
         for response in batch:
             prompt += f"- {response}\n"
@@ -762,112 +786,20 @@ def get_suggestions_batch(model, responses, batch_size=10):
     
     return suggestions
 
-# Add CSS for suggestions and cards at the start
-st.markdown("""
-<style>
-    /* Experience card base styling */
-    .experience-card {
-        position: relative !important;
-        padding: 1.5em !important;
-        padding-left: 60px !important;
-        margin-bottom: 1em !important;
-        background: #ffffff !important;
-        border-radius: 12px !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
-    }
-    
-    .card-content {
-        position: relative !important;
-        z-index: 1 !important;
-    }
-    
-    /* Category text styling */
-    .category-text {
-        margin: 0.5em 0 !important;
-        font-family: 'Cairo', sans-serif !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 0.5em !important;
-        line-height: 1.5 !important;
-    }
-    
-    .category-text strong {
-        font-weight: 600 !important;
-        color: #333 !important;
-        white-space: nowrap !important;
-    }
-    
-    /* Info link and bubble styling */
-    .info-link-container {
-        position: absolute !important;
-        left: 15px !important;
-        top: 15px !important;
-        z-index: 100 !important;
-    }
-    
-    .info-link {
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        width: 28px !important;
-        height: 28px !important;
-        background: linear-gradient(135deg, #2196F3, #1976D2) !important;
-        color: white !important;
-        border-radius: 50% !important;
-        text-decoration: none !important;
-        font-weight: bold !important;
-        font-size: 14px !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .info-bubble {
-        display: none !important;
-        position: absolute !important;
-        left: 40px !important;
-        top: -5px !important;
-        width: 250px !important;
-        background: white !important;
-        border: 1px solid rgba(0,0,0,0.1) !important;
-        border-radius: 8px !important;
-        padding: 12px !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
-    }
-    
-    .info-link:hover + .info-bubble,
-    .info-bubble:hover {
-        display: block !important;
-    }
-    
-    /* Response text styling */
-    .response-text {
-        margin-bottom: 0.8em !important;
-    }
-    
-    .response-highlight-wrapper {
-        margin-top: 0.3em !important;
-        padding: 0.5em !important;
-        background: rgba(0,0,0,0.02) !important;
-        border-radius: 4px !important;
-    }
-    
-    /* Suggestion styling */
-    .suggestion-wrapper {
-        margin: 0.8em 0 !important;
-        padding: 0.8em 1em !important;
-        background: rgba(244, 67, 54, 0.05) !important;
-        border-right: 3px solid rgba(244, 67, 54, 0.5) !important;
-        border-radius: 6px !important;
-        font-size: 0.95em !important;
-        line-height: 1.5 !important;
-        color: #d32f2f !important;
-    }
-    
-    .suggestion-text {
-        font-family: 'Cairo', sans-serif !important;
-    }
-</style>
-""", unsafe_allow_html=True)
+def clean_suggestion_text(suggestion):
+    """Clean up suggestion text by removing prefix and extra whitespace"""
+    if not suggestion:
+        return ""
+    # Remove the prefix and any leading/trailing whitespace
+    cleaned = suggestion.replace('المقترح:', '').strip()
+    # Remove asterisks and dashes
+    cleaned = cleaned.replace('*', '').replace('-', '').strip()
+    # Remove any extra whitespace
+    cleaned = ' '.join(cleaned.split())
+    # Capitalize first letter if it's not Arabic
+    if cleaned and not cleaned[0].isalpha():
+        cleaned = cleaned[0].upper() + cleaned[1:]
+    return cleaned
 
 def display_experience(result, experience_type):
     """Enhanced display function for experiences with suggestions"""
@@ -879,7 +811,7 @@ def display_experience(result, experience_type):
         suggestion = ""
         if experience_type == "سلبي" and 'suggestions' in st.session_state:
             response_text = result.get('response', '')
-            suggestion = st.session_state.suggestions.get(response_text, '')
+            suggestion = clean_suggestion_text(st.session_state.suggestions.get(response_text, ''))
         
         # For invalid responses, all classification fields should show "خطأ"
         if experience_type == "خطأ":
@@ -890,7 +822,15 @@ def display_experience(result, experience_type):
             subcategory = result.get('classification', {}).get('subcategory', '')
         
         # Only include suggestion HTML if we have a suggestion
-        suggestion_html = f"""<div class="suggestion-wrapper"><div class="suggestion-text">{suggestion}</div></div>""" if suggestion else ""
+        suggestion_html = f"""
+            <div class="suggestion-wrapper">
+                <div class="suggestion-icon">💡</div>
+                <div class="suggestion-text">
+                    <span class="suggestion-label">المقترح للتحسين</span>
+                    <div class="suggestion-content">{suggestion}</div>
+                </div>
+            </div>
+        """ if suggestion else ""
         
         html_content = f"""
             <div class="experience-card {card_class}">
@@ -1073,7 +1013,7 @@ if 'results' in st.session_state and st.session_state.results:
                                     'التصنيف': exp.get('classification', {}).get('category', ''),
                                     'التصنيف الفرعي': exp.get('classification', {}).get('subcategory', ''),
                                     'التفسير': exp.get('classification', {}).get('explanation', ''),
-                                    'المقترح': suggestion.replace('المقترح:', '').strip() if suggestion else ''
+                                    'المقترح': clean_suggestion_text(suggestion) if suggestion else ''
                                 })
                             
                             df_negative = pd.DataFrame(negative_data)
