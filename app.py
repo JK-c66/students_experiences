@@ -215,8 +215,11 @@ def classify_responses_batch(responses_batch):
         # Format the responses for processing
         batch_text = "\n---\n".join([f"response_{i+1}: {str(r)}" for i, r in enumerate(responses_batch)])
         
-        # Send request to model
+        # Time the model response
+        start_time = time.perf_counter()
         chat_response = st.session_state.model.send_message(batch_text)
+        end_time = time.perf_counter()
+        batch_time = end_time - start_time
         
         try:
             # Sanitize the response text
@@ -280,7 +283,8 @@ def classify_responses_batch(responses_batch):
                 if result['response']:
                     validated_results.append(result)
             
-            return validated_results
+            # Return both the classifications and the batch time
+            return validated_results, batch_time
             
         except json.JSONDecodeError as e:
             st.error(f"فشل في تحليل استجابة النموذج: {str(e)}")
@@ -300,14 +304,14 @@ def classify_responses_batch(responses_batch):
                         continue
                 if partial_results:
                     st.warning("تم استرداد بعض النتائج الجزئية")
-                    return partial_results
+                    return partial_results, batch_time
             except:
                 pass
-            return []
+            return [], batch_time
             
     except Exception as e:
         st.error(f"خطأ في التصنيف: {str(e)}")
-        return []
+        return [], 0
 
 def display_experience(result, experience_type):
     """Enhanced display function for experiences"""
@@ -704,6 +708,10 @@ if st.session_state.preview_data is not None:
                     batch_size = MIN_BATCH_SIZE
                     total_batches = (len(responses) + batch_size - 1) // batch_size
                     
+                    # Initialize timing variables
+                    total_start_time = time.perf_counter()
+                    batch_times = []
+                    
                     # Process responses in batches
                     i = 0
                     while i < len(responses):
@@ -712,7 +720,8 @@ if st.session_state.preview_data is not None:
                         batch = responses[i:end_idx]
                         
                         try:
-                            classifications = classify_responses_batch(batch)
+                            classifications, batch_time = classify_responses_batch(batch)
+                            batch_times.append(batch_time)
                             
                             # Show parsed JSON in expander
                             with st.expander("Debug: Parsed JSON"):
@@ -734,17 +743,22 @@ if st.session_state.preview_data is not None:
                             # If batch fails, try processing one by one
                             for response in batch:
                                 try:
-                                    classification = classify_responses_batch([response])[0]
-                                    if classification and isinstance(classification, dict):
+                                    single_classifications, single_time = classify_responses_batch([response])
+                                    batch_times.append(single_time)
+                                    if single_classifications and isinstance(single_classifications[0], dict):
                                         result = {
                                             "response": response,
-                                            "classification": classification.get('classification', {})
+                                            "classification": single_classifications[0].get('classification', {})
                                         }
                                         results.append(result)
                                 except Exception as e:
                                     st.error(f"Error processing single response: {str(e)}")
                                     continue
                             i += len(batch)
+                    
+                    # Calculate timing statistics
+                    total_time = time.perf_counter() - total_start_time
+                    avg_batch_time = sum(batch_times) / len(batch_times) if batch_times else 0
                     
                     # Clear processing indicator
                     processing_container.empty()
@@ -753,10 +767,12 @@ if st.session_state.preview_data is not None:
                     st.session_state.classification_results = results
                     st.session_state.results = results
                     
-                    # Show success message
-                    st.markdown("""
+                    # Show success message with timing info
+                    st.markdown(f"""
                         <div class="toast success">
-                            تم تصنيف الاستجابات بنجاح!
+                            تم تصنيف الاستجابات بنجاح!<br>
+                            الوقت الإجمالي: {total_time:.2f} ثانية<br>
+                            متوسط وقت المعالجة لكل دفعة: {avg_batch_time:.2f} ثانية
                         </div>
                     """, unsafe_allow_html=True)
                     
@@ -1050,13 +1066,6 @@ if st.session_state.get('results'):
             
             .neutral-stat:hover {
                 transform: translateY(-2px);
-            }
-            
-            .neutral-stat::after {
-                content: '🔘';
-                font-size: 1.2em;
-                opacity: 0.9;
-                transition: transform 0.3s ease;
             }
             
             .neutral-stat:hover::after {

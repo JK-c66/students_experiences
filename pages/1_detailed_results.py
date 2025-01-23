@@ -7,6 +7,7 @@ import os
 import google.generativeai as genai
 import io
 from openpyxl.styles import Font, PatternFill, Alignment
+import time
 
 # Page config
 st.set_page_config(
@@ -772,6 +773,8 @@ def initialize_suggestion_model():
 def get_suggestions_batch(model, responses, batch_size=10):
     """Get suggestions for a batch of negative responses."""
     suggestions = []
+    total_time = 0
+    batch_times = []
     
     for i in range(0, len(responses), batch_size):
         batch = responses[i:min(i + batch_size, len(responses))]
@@ -781,7 +784,13 @@ def get_suggestions_batch(model, responses, batch_size=10):
             prompt += f"- {response}\n"
         
         try:
+            start_time = time.time()
             response = model.generate_content(prompt)
+            end_time = time.time()
+            batch_time = end_time - start_time
+            total_time += batch_time
+            batch_times.append(batch_time)
+            
             suggestions_text = response.text.split('\n')
             
             # Clean up and match suggestions with responses
@@ -799,6 +808,15 @@ def get_suggestions_batch(model, responses, batch_size=10):
         except Exception as e:
             st.error(f"Error getting suggestions for batch: {str(e)}")
             suggestions.extend(["المقترح: لا يوجد مقترح متاح."] * len(batch))
+            batch_times.append(0)  # Add 0 for failed batch
+    
+    # Store timing information in session state
+    st.session_state.gemini_timing = {
+        'total_time': total_time,
+        'avg_time': total_time / len(batch_times) if batch_times else 0,
+        'batch_times': batch_times,
+        'num_batches': len(batch_times)
+    }
     
     return suggestions
 
@@ -1009,7 +1027,17 @@ if 'results' in st.session_state and st.session_state.results:
                                 # Store suggestions in session state
                                 st.session_state.suggestions = dict(zip(negative_responses, suggestions_list))
                                 
-                                st.success('تم توليد المقترحات بنجاح!')
+                                # Display timing information
+                                if 'gemini_timing' in st.session_state:
+                                    timing = st.session_state.gemini_timing
+                                    st.success(
+                                        f'تم توليد المقترحات بنجاح! \n\n'
+                                        f'الوقت الإجمالي: {timing["total_time"]:.2f} ثانية\n'
+                                        f'متوسط الوقت لكل دفعة: {timing["avg_time"]:.2f} ثانية\n'
+                                        f'عدد الدفعات: {timing["num_batches"]}'
+                                    )
+                                else:
+                                    st.success('تم توليد المقترحات بنجاح!')
                         else:
                             st.error('فشل في تهيئة نموذج المقترحات')
                 
