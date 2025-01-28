@@ -516,6 +516,15 @@ def subcategories_to_df(categories, selected_category):
 # Load existing categories and types
 categories, types = load_categories()
 
+# Initialize session state for toast messages if not exists
+if 'show_toast' not in st.session_state:
+    st.session_state.show_toast = None
+
+# Show toast message if flag is set
+if st.session_state.show_toast:
+    st.toast(st.session_state.show_toast['message'], icon="✅")
+    st.session_state.show_toast = None
+
 # Title
 st.title("إدارة التصنيفات")
 
@@ -604,7 +613,7 @@ with tab2:
             
             categories = new_categories
             save_categories(categories, types)
-            st.success("✅ تم حفظ التغييرات بنجاح")
+            st.session_state.show_toast = {'message': "تم حفظ التصنيفات الرئيسية بنجاح"}
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -617,26 +626,34 @@ with tab2:
         selected_category = st.selectbox("اختر التصنيف", list(categories.keys()), key="subcategory_selector")
         
         if selected_category:
+            # Initialize subcategories if they don't exist
+            if 'subcategories' not in categories[selected_category]:
+                categories[selected_category] = {'subcategories': []}
+            
             subcategories_df = subcategories_to_df(categories, selected_category)
+            
+            # Add empty row to DataFrame if it's empty
+            if subcategories_df.empty:
+                subcategories_df = pd.DataFrame({"التصنيف الفرعي": [""]})
             
             edited_subcategories_df = st.data_editor(
                 subcategories_df,
                 num_rows="dynamic",
-                key="subcategories_editor",
+                key=f"subcategories_editor_{selected_category}",  # Dynamic key based on selected category
                 use_container_width=True
             )
             
             st.markdown('<div class="button-container">', unsafe_allow_html=True)
-            if st.button("حفظ التغييرات في التصنيفات الفرعية"):
+            if st.button("حفظ التغييرات في التصنيفات الفرعية", key=f"save_subcats_{selected_category}"):  # Dynamic key for button
                 new_subcategories = []
                 for _, row in edited_subcategories_df.iterrows():
                     subcat = row["التصنيف الفرعي"]
-                    if subcat and not pd.isna(subcat):
-                        new_subcategories.append(subcat)
+                    if subcat and not pd.isna(subcat) and str(subcat).strip():  # Better validation
+                        new_subcategories.append(str(subcat).strip())
                 
                 categories[selected_category]['subcategories'] = new_subcategories
                 save_categories(categories, types)
-                st.success("✅ تم حفظ التغييرات بنجاح")
+                st.session_state.show_toast = {'message': "تم حفظ التصنيفات الفرعية بنجاح"}
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
     
